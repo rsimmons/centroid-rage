@@ -96,8 +96,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // interaction
     var MODE_NOTHING = 0;
-    var MODE_DRAWING = 1;
-    var MODE_ZOOMING = 2;
+    var MODE_DRAW = 1;
+    var MODE_ZOOM = 2;
     var currentMode = MODE_NOTHING;
 
     var interactionElem = rootSVGElem;
@@ -133,7 +133,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 var p = polygon[i];
                 dataStr += "L " +  p.x + " " + p.y + " ";
             }
-            if (currentMode !== MODE_DRAWING) {
+            if (currentMode !== MODE_DRAW) {
                 polygonElem.setAttributeNS(null, "fill", "rgb(200,200,200)");
                 dataStr += "Z";
             }
@@ -152,14 +152,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("click", function (e) {
         if ((currentMode === MODE_NOTHING) && (e.button === 0) && (polygon === null)) {
-            currentMode = MODE_DRAWING;
+            currentMode = MODE_DRAW;
             polygon = [];
 
             var p = eventToElemCoords(e, polyContainerElem);
             polygon.push(p);
             polygon.push(p); // push again, so we have two points
             updatePolygonElem();
-        } else if (currentMode === MODE_DRAWING) {
+        } else if (currentMode === MODE_DRAW) {
             if (e.button === 0) {
                 // add another point
                 var p = eventToElemCoords(e, polyContainerElem);
@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("contextmenu", function (e) {
         e.preventDefault();
-        if (currentMode == MODE_DRAWING) {
+        if (currentMode == MODE_DRAW) {
             currentMode = MODE_NOTHING;
             polygon.pop();
             updatePolygonElem();
@@ -183,24 +183,24 @@ document.addEventListener("DOMContentLoaded", function() {
             if (e.button === 2) {
                 // right click
                 e.preventDefault();
-                currentMode = MODE_ZOOMING;
+                currentMode = MODE_ZOOM;
                 dragPrev = {x: e.pageX, y: e.pageY};
             }
         }
     }, false);
 
     interactionElem.addEventListener("mouseup", function (e) {
-        if (currentMode === MODE_ZOOMING) {
+        if (currentMode === MODE_ZOOM) {
             currentMode = MODE_NOTHING;
         }
     }, false);
 
     interactionElem.addEventListener("mousemove", function (e) {
-        if (currentMode === MODE_DRAWING) {
+        if (currentMode === MODE_DRAW) {
             var p = eventToElemCoords(e, polyContainerElem);
             polygon[polygon.length-1] = p;
             updatePolygonElem();
-        } else if (currentMode === MODE_ZOOMING) {
+        } else if (currentMode === MODE_ZOOM) {
             var dy = e.pageY - dragPrev.y;
             zoomSumY += dy;
             setZoom(Math.exp(-0.01*zoomSumY));
