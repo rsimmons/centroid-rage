@@ -85,15 +85,17 @@ document.addEventListener("DOMContentLoaded", function() {
     function updatePolygonElem() {
         if (polygon) {
             if (!polygonElem) {
-                polygonElem = svgElem("polygon", {fill: "rgb(200,200,200)", stroke: "black", "stroke-width": "0.1"});
+                polygonElem = svgElem("path", {fill: "rgb(200,200,200)", stroke: "black", "stroke-width": "0.1"});
                 polyContainerElem.appendChild(polygonElem);
             }
-            var pointsStr = "";
-            for (var i = 0; i < polygon.length; i++) {
+            var dataStr = "";
+            dataStr += "M " + polygon[0].x + " " + polygon[0].y + " ";
+            for (var i = 1; i < polygon.length; i++) {
                 var p = polygon[i];
-                pointsStr += p.x + "," + p.y + " ";
+                dataStr += "L " +  p.x + " " + p.y + " ";
             }
-            polygonElem.setAttributeNS(null, "points", pointsStr);
+            dataStr += "Z";
+            polygonElem.setAttributeNS(null, "d", dataStr);
         } else {
             polyContainerElem.removeChild(polygonElem);
             polygonElem = null;
