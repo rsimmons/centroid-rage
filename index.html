@@ -165,6 +165,12 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }, false);
 
+    document.getElementById("clear-button").addEventListener("click", function(e) {
+        currentMode = MODE_NOTHING;
+        polygon = null;
+        updatePolygonElem();
+    }, false);
+
     // toggling control panel
     var controlPanelElem = document.getElementById("control-panel");
     var controlPanelShown = true;
