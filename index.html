@@ -38,6 +38,41 @@ function removeAllChildren(elem) {
     }
 }
 
+function polySignedArea(poly) {
+    var sum = 0;
+    for (var i = 0; i < poly.length; i++) {
+        var i1 = (i+1) % poly.length;
+        sum += poly[i].x*poly[i1].y - poly[i1].x*poly[i].y;
+    }
+    return 0.5*sum;
+}
+
+// from http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
+function polyCentroid(poly) {
+    var area = polySignedArea(poly);
+    if (area === 0) { // TODO: could check against an epsilon instead
+        var xsum = 0, ysum = 0;
+        for (var i = 0; i < poly.length; i++) {
+            xsum += poly[i].x;
+            ysum += poly[i].y;
+        }
+        var factor = 1.0/poly.length;
+        return {x: factor*xsum, y: factor*ysum};
+    }
+
+    var xsum = 0, ysum = 0;
+
+    for (var i = 0; i < poly.length; i++) {
+        var i1 = (i+1) % poly.length;
+        var sub = poly[i].x*poly[i1].y - poly[i1].x*poly[i].y;
+        xsum += sub*(poly[i].x + poly[i1].x);
+        ysum += sub*(poly[i].y + poly[i1].y);
+    }
+
+    var factor = 1.0/(6*area);
+    return {x: factor*xsum, y: factor*ysum};
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     var rootSVGElem = svgElem("svg", {version: "1.1"});
 
@@ -55,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // polygon
     var polygon = null; // array of objects with x and y attrs
     var polygonElem = null;
+    var centroidElem = null;
 
     document.getElementById("main").appendChild(rootSVGElem);
 
@@ -87,6 +123,9 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!polygonElem) {
                 polygonElem = svgElem("path", {fill: "none", stroke: "black", "stroke-width": "0.1"});
                 polyContainerElem.appendChild(polygonElem);
+
+                centroidElem = svgElem("circle", {fill: "red", r: "1"});
+                polyContainerElem.appendChild(centroidElem);
             }
             var dataStr = "";
             dataStr += "M " + polygon[0].x + " " + polygon[0].y + " ";
@@ -98,9 +137,15 @@ document.addEventListener("DOMContentLoaded", function() {
                 polygonElem.setAttributeNS(null, "fill", "rgb(200,200,200)");
                 dataStr += "Z";
             }
+
             polygonElem.setAttributeNS(null, "d", dataStr);
+
+            var centroid = polyCentroid(polygon);
+            centroidElem.setAttributeNS(null, "cx", centroid.x);
+            centroidElem.setAttributeNS(null, "cy", centroid.y);
         } else {
             polyContainerElem.removeChild(polygonElem);
+            polyContainerElem.removeChild(centroidElem);
             polygonElem = null;
         }
     }
