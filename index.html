@@ -82,19 +82,6 @@ document.addEventListener("DOMContentLoaded", function() {
         zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ")");
     }
 
-    function mousemoveListener(e) {
-        if (currentMode === MODE_DRAWING) {
-            var p = eventToElemCoords(e, polyContainerElem);
-            polygon[polygon.length-1] = p;
-            updatePolygonElem();
-        } else if (currentMode === MODE_ZOOMING) {
-            var dy = e.pageY - dragPrev.y;
-            zoomSumY += dy;
-            setZoom(Math.exp(-0.01*zoomSumY));
-            dragPrev = {x: e.pageX, y: e.pageY};
-        }
-    }
-
     function updatePolygonElem() {
         if (polygon) {
             if (!polygonElem) {
@@ -118,7 +105,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if ((currentMode === MODE_NOTHING) && (e.button === 0) && (polygon === null)) {
             currentMode = MODE_DRAWING;
             polygon = [];
-            interactionElem.addEventListener("mousemove", mousemoveListener);
 
             var p = eventToElemCoords(e, polyContainerElem);
             polygon.push(p);
@@ -132,7 +118,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 updatePolygonElem();
             }
         }
-    });
+    }, false);
 
     interactionElem.addEventListener("contextmenu", function (e) {
         e.preventDefault();
@@ -140,9 +126,8 @@ document.addEventListener("DOMContentLoaded", function() {
             currentMode = MODE_NOTHING;
             polygon.pop();
             updatePolygonElem();
-            interactionElem.removeEventListener("mousemove", mousemoveListener);
         }
-    });
+    }, false);
 
     interactionElem.addEventListener("mousedown", function (e) {
         console.log("mousedown with button", e.button);
@@ -152,15 +137,26 @@ document.addEventListener("DOMContentLoaded", function() {
                 e.preventDefault();
                 currentMode = MODE_ZOOMING;
                 dragPrev = {x: e.pageX, y: e.pageY};
-                interactionElem.addEventListener("mousemove", mousemoveListener);
             }
         }
     }, false);
 
     interactionElem.addEventListener("mouseup", function (e) {
         if (currentMode === MODE_ZOOMING) {
-            interactionElem.removeEventListener("mousemove", mousemoveListener);
             currentMode = MODE_NOTHING;
+        }
+    }, false);
+
+    interactionElem.addEventListener("mousemove", function (e) {
+        if (currentMode === MODE_DRAWING) {
+            var p = eventToElemCoords(e, polyContainerElem);
+            polygon[polygon.length-1] = p;
+            updatePolygonElem();
+        } else if (currentMode === MODE_ZOOMING) {
+            var dy = e.pageY - dragPrev.y;
+            zoomSumY += dy;
+            setZoom(Math.exp(-0.01*zoomSumY));
+            dragPrev = {x: e.pageX, y: e.pageY};
         }
     }, false);
 
