@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function updatePolygonElem() {
         if (polygon) {
             if (!polygonElem) {
-                polygonElem = svgElem("path", {fill: "rgb(200,200,200)", stroke: "black", "stroke-width": "0.1"});
+                polygonElem = svgElem("path", {fill: "none", stroke: "black", "stroke-width": "0.1"});
                 polyContainerElem.appendChild(polygonElem);
             }
             var dataStr = "";
@@ -94,7 +94,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 var p = polygon[i];
                 dataStr += "L " +  p.x + " " + p.y + " ";
             }
-            dataStr += "Z";
+            if (currentMode !== MODE_DRAWING) {
+                polygonElem.setAttributeNS(null, "fill", "rgb(200,200,200)");
+                dataStr += "Z";
+            }
             polygonElem.setAttributeNS(null, "d", dataStr);
         } else {
             polyContainerElem.removeChild(polygonElem);
