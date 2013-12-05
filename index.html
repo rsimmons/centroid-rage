@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cog</title>
+<meta name="viewport" content="width=device-width">
+<style type="text/css">
+body {overflow:hidden;font-family:sans-serif;}
+#main {display:block;position:fixed;top:0;left:0;height:100%;width:100%;box-sizing:border-box}
+#control-panel {display:block;position:fixed;top:0;right:0;padding:5px;box-sizing:border-box;background-color:rgba(100,100,100,0.8)}
+</style>
+</head>
+<body>
+<div id="main"></div>
+<div id="control-panel"><button id="clear-button">Clear</button></div>
+<script>
+"use strict";
+
+var SVGNS = "http://www.w3.org/2000/svg";
+
+function svgElem(name, attrs) {
+    var elem = document.createElementNS(SVGNS, name);
+
+    if (attrs) {
+        for (var k in attrs) {
+            if (attrs.hasOwnProperty(k)) {
+                elem.setAttributeNS(null, k, attrs[k]);
+            }
+        }
+    }
+
+    return elem;
+}
+
+function removeAllChildren(elem) {
+    while (elem.hasChildNodes()) {
+        elem.removeChild(elem.childNodes[0]);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    var rootSVGElem = svgElem("svg", {version: "1.1"});
+
+    var bg = svgElem("rect", {x: "0", y: "0", width: "100%", height: "100%", fill: "rgb(100,100,100)", stroke: "none"});
+    rootSVGElem.appendChild(bg);
+
+    var innerSVGElem = svgElem("svg", {version: "1.1", viewBox: "-60 -60 120 120"});
+    rootSVGElem.appendChild(innerSVGElem);
+
+    var zoomGroupElem = svgElem("g");
+    innerSVGElem.appendChild(zoomGroupElem);
+
+    var polyContainerElem = zoomGroupElem;
+
+    // polygon
+    var polygon = null; // array of objects with x and y attrs
+    var polygonElem = null;
+
+    document.getElementById("main").appendChild(rootSVGElem);
+
+    // interaction
+    var MODE_NOTHING = 0;
+    var MODE_DRAWING = 1;
+    var MODE_ZOOMING = 2;
+    var currentMode = MODE_NOTHING;
+
+    var interactionElem = rootSVGElem;
+    var dragPrev = null;
+    var zoomSumY = 0;
+
+    function eventToElemCoords(event, elem) {
+        // return coords of event in coord space of element
+        var m = elem.getScreenCTM();
+        var p = rootSVGElem.createSVGPoint();
+        p.x = event.pageX;
+        p.y = event.pageY;
+        p = p.matrixTransform(m.inverse());
+        return {x: p.x, y: p.y};
+    }
+
+    function setZoom(zoom) {
+        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ")");
+    }
+
+    function mousemoveListener(e) {
+        if (currentMode === MODE_DRAWING) {
+            var p = eventToElemCoords(e, polyContainerElem);
+            polygon[polygon.length-1] = p;
+            updatePolygonElem();
+        } else if (currentMode === MODE_ZOOMING) {
+            var dy = e.pageY - dragPrev.y;
+            zoomSumY += dy;
+            setZoom(Math.exp(-0.01*zoomSumY));
+            dragPrev = {x: e.pageX, y: e.pageY};
+        }
+    }
+
+    function updatePolygonElem() {
+        if (polygon) {
+            if (!polygonElem) {
+                polygonElem = svgElem("polygon", {fill: "rgb(200,200,200)", stroke: "black", "stroke-width": "0.1"});
+                polyContainerElem.appendChild(polygonElem);
+            }
+            var pointsStr = "";
+            for (var i = 0; i < polygon.length; i++) {
+                var p = polygon[i];
+                pointsStr += p.x + "," + p.y + " ";
+            }
+            polygonElem.setAttributeNS(null, "points", pointsStr);
+        } else {
+            polyContainerElem.removeChild(polygonElem);
+            polygonElem = null;
+        }
+    }
+
+    interactionElem.addEventListener("click", function (e) {
+        console.log("click with button", e.button);
+        if ((currentMode === MODE_NOTHING) && (e.button === 0) && (polygon === null)) {
+            currentMode = MODE_DRAWING;
+            polygon = [];
+            interactionElem.addEventListener("mousemove", mousemoveListener);
+
+            var p = eventToElemCoords(e, polyContainerElem);
+            polygon.push(p);
+            polygon.push(p); // push again, so we have two points
+            updatePolygonElem();
+        } else if (currentMode === MODE_DRAWING) {
+            if (e.button === 0) {
+                // add another point
+                var p = eventToElemCoords(e, polyContainerElem);
+                polygon.push(p);
+                updatePolygonElem();
+            }
+        }
+    });
+
+    interactionElem.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        if (currentMode == MODE_DRAWING) {
+            currentMode = MODE_NOTHING;
+            polygon.pop();
+            updatePolygonElem();
+            interactionElem.removeEventListener("mousemove", mousemoveListener);
+        }
+    });
+
+    interactionElem.addEventListener("mousedown", function (e) {
+        console.log("mousedown with button", e.button);
+        if (currentMode === MODE_NOTHING) {
+            if (e.button === 2) {
+                // right click
+                e.preventDefault();
+                currentMode = MODE_ZOOMING;
+                dragPrev = {x: e.pageX, y: e.pageY};
+                interactionElem.addEventListener("mousemove", mousemoveListener);
+            }
+        }
+    }, false);
+
+    interactionElem.addEventListener("mouseup", function (e) {
+        if (currentMode === MODE_ZOOMING) {
+            interactionElem.removeEventListener("mousemove", mousemoveListener);
+            currentMode = MODE_NOTHING;
+        }
+    }, false);
+
+    // toggling control panel
+    var controlPanelElem = document.getElementById("control-panel");
+    var controlPanelShown = true;
+    document.addEventListener("keydown", function(e) {
+        if (e.keyCode === 27) {
+            if (controlPanelShown) {
+                controlPanelElem.setAttribute("style", "display:none");
+            } else {
+                controlPanelElem.setAttribute("style", "display:block");
+            }
+            controlPanelShown = !controlPanelShown;
+        }
+    }, false);
+
+}, false);
+</script>
+</body>
+</html>
