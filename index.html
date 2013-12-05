@@ -106,7 +106,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     interactionElem.addEventListener("click", function (e) {
-        console.log("click with button", e.button);
         if ((currentMode === MODE_NOTHING) && (e.button === 0) && (polygon === null)) {
             currentMode = MODE_DRAWING;
             polygon = [];
@@ -135,7 +134,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }, false);
 
     interactionElem.addEventListener("mousedown", function (e) {
-        console.log("mousedown with button", e.button);
         if (currentMode === MODE_NOTHING) {
             if (e.button === 2) {
                 // right click
