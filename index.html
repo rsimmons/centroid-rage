@@ -188,8 +188,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 params.push(+paramResult[0]);
             }
 
-            // console.log(commandLetter, params);
-
             if (commandLetter === 'M') {
                 assert(params.length === 2);
                 currentPoint = {x: params[0], y: params[1]};
@@ -231,7 +229,6 @@ document.addEventListener("DOMContentLoaded", function() {
             importedPoly[i].y -= centroid.y;
         }
 
-        console.log(importedPoly);
         polygon = importedPoly;
         updatePolygonElem();
     }
