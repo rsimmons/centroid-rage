@@ -176,7 +176,10 @@ document.addEventListener("DOMContentLoaded", function() {
         var commandRegexp = /([A-Za-z])\s*([-0-9.,\s]*)/g; // can't be a literal inside while condition
         var paramRegexp = /-?[0-9.]+/g;
         var result;
+
         var currentPoint;
+        var subpathStart;
+        var importedPoly = [];
         while ((result = commandRegexp.exec(pathData)) !== null) {
             var commandLetter = result[1];
             var paramResult;
@@ -190,19 +193,47 @@ document.addEventListener("DOMContentLoaded", function() {
             if (commandLetter === 'M') {
                 assert(params.length === 2);
                 currentPoint = {x: params[0], y: params[1]};
-            } else if (commandLetter == 'l') {
+                subpathStart = {x: params[0], y: params[1]};
+                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
+            } else if (commandLetter === 'l') {
                 assert(params.length === 2);
-            } else if ((commandLetter == 'c') || (commandLetter == 'C')) {
+                currentPoint.x += params[0];
+                currentPoint.y += params[1];
+                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
+            } else if ((commandLetter === 'c') || (commandLetter === 'C')) {
                 assert(params.length === 6);
-            } else if (commandLetter == 's') {
+                if (commandLetter === 'c') {
+                    currentPoint.x += params[4];
+                    currentPoint.y += params[5];
+                } else if (commandLetter === 'C') {
+                    currentPoint.x = params[4];
+                    currentPoint.y = params[5];
+                } else {
+                    assert(false);
+                }
+                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
+            } else if (commandLetter === 's') {
                 assert(params.length === 4);
-            } else if ((commandLetter == 'z') || (commandLetter == 'Z')) {
+                currentPoint.x += params[2];
+                currentPoint.y += params[3];
+                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
+            } else if ((commandLetter === 'z') || (commandLetter === 'Z')) {
                 assert(params.length === 0);
             } else {
                 console.log("unhandled command", commandLetter);
                 assert(false);
             }
         }
+
+        var centroid = polyCentroid(importedPoly);
+        for (var i = 0; i < importedPoly.length; i++) {
+            importedPoly[i].x -= centroid.x;
+            importedPoly[i].y -= centroid.y;
+        }
+
+        console.log(importedPoly);
+        polygon = importedPoly;
+        updatePolygonElem();
     }
 
     interactionElem.addEventListener("contextmenu", function (e) {
