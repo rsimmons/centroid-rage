@@ -104,6 +104,26 @@ function polyCentroid(poly) {
     return {x: factor*xsum, y: factor*ysum};
 }
 
+// return index of polygon vertex that is nearest to point p, within given radius. null if no vertex within radius
+function nearestVertex(poly, p, radius) {
+    var radSqr = radius*radius;
+    var nearestIndex = null;
+    var nearestDistSqr;
+
+    for (var i = 0; i < poly.length; i++) {
+        var q = poly[i];
+        var dx = q.x - p.x;
+        var dy = q.y - p.y;
+        var distSqr = dx*dx + dy*dy;
+        if ((distSqr <= radius) && ((nearestDistSqr === undefined) || (distSqr < nearestDistSqr))) {
+            nearestIndex = i;
+            nearestDistSqr = distSqr;
+        }
+    }
+
+    return nearestIndex;
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     var rootSVGElem = svgElem("svg", {version: "1.1"});
 
@@ -122,6 +142,9 @@ document.addEventListener("DOMContentLoaded", function() {
     var polygon = null; // array of objects with x and y attrs
     var polygonElem = null;
     var centroidElem = null;
+
+    var highlightedVertexIndex = null;
+    var vertexHighlightElem = null;
 
     document.getElementById("main").appendChild(rootSVGElem);
 
@@ -193,9 +216,31 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         } else {
             polyContainerElem.removeChild(polygonElem);
-            polyContainerElem.removeChild(centroidElem);
-            document.getElementById("area-display").textContent = "";
             polygonElem = null;
+
+            polyContainerElem.removeChild(centroidElem);
+            centroidElem = null;
+
+            document.getElementById("area-display").textContent = "";
+        }
+    }
+
+    // null to highlight no vertex
+    function updatedHighlightedVertex() {
+        if (highlightedVertexIndex === null) {
+            if (vertexHighlightElem) {
+                polyContainerElem.removeChild(vertexHighlightElem);
+                vertexHighlightElem = null;
+            }
+        } else {
+            if (!vertexHighlightElem) {
+                vertexHighlightElem = svgElem("circle", {fill: "green", stroke: "none", r: "1"});
+                polyContainerElem.appendChild(vertexHighlightElem);
+            }
+
+            var ph = polygon[highlightedVertexIndex];
+            vertexHighlightElem.setAttributeNS(null, "cx", ph.x);
+            vertexHighlightElem.setAttributeNS(null, "cy", ph.y);
         }
     }
 
@@ -314,7 +359,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }, false);
 
     interactionElem.addEventListener("mousemove", function (e) {
-        if (currentMode === MODE_DRAW) {
+        if (currentMode === MODE_NOTHING) {
+            if (polygon) {
+                var cur = eventToElemCoords(e, polyContainerElem);
+                var radius = 10.0;
+                highlightedVertexIndex = nearestVertex(polygon, cur, radius);
+                updatedHighlightedVertex();
+            }
+        } else if (currentMode === MODE_DRAW) {
             var p = eventToElemCoords(e, polyContainerElem);
             polygon[polygon.length-1] = p;
             updatePolygonElem();
