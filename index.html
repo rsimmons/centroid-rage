@@ -36,6 +36,7 @@ body {
 <div id="control-panel">
     <div><button id="clear-button">Clear</button></div>
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
+    <div><label>Area: <span id="area-display"></span></label></div>
 </div>
 <script>
 "use strict";
@@ -171,6 +172,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 var p = polygon[i];
                 dataStr += "L " +  p.x + " " + p.y + " ";
             }
+
+            // close and fill if done drawing
             if (currentMode !== MODE_DRAW) {
                 polygonElem.setAttributeNS(null, "fill", "rgb(200,200,200)");
                 dataStr += "Z";
@@ -178,12 +181,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
             polygonElem.setAttributeNS(null, "d", dataStr);
 
+            // calculate and draw centroid
             var centroid = polyCentroid(polygon);
             centroidElem.setAttributeNS(null, "cx", centroid.x);
             centroidElem.setAttributeNS(null, "cy", centroid.y);
+
+            // calculate and display area if done drawing
+            if (currentMode !== MODE_DRAW) {
+                var area = Math.abs(polySignedArea(polygon));
+                document.getElementById("area-display").textContent = area;
+            }
         } else {
             polyContainerElem.removeChild(polygonElem);
             polyContainerElem.removeChild(centroidElem);
+            document.getElementById("area-display").textContent = "";
             polygonElem = null;
         }
     }
