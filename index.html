@@ -158,25 +158,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    interactionElem.addEventListener("click", function (e) {
-        if ((currentMode === MODE_NOTHING) && (e.button === 0) && (polygon === null)) {
-            currentMode = MODE_DRAW;
-            polygon = [];
-
-            var p = eventToElemCoords(e, polyContainerElem);
-            polygon.push(p);
-            polygon.push(p); // push again, so we have two points
-            updatePolygonElem();
-        } else if (currentMode === MODE_DRAW) {
-            if (e.button === 0) {
-                // add another point
-                var p = eventToElemCoords(e, polyContainerElem);
-                polygon.push(p);
-                updatePolygonElem();
-            }
-        }
-    }, false);
-
     interactionElem.addEventListener("contextmenu", function (e) {
         e.preventDefault();
         if (currentMode == MODE_DRAW) {
@@ -188,14 +169,31 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("mousedown", function (e) {
         if (currentMode === MODE_NOTHING) {
-            if ((e.button === 0) && polygon) {
-                // enter drag mode
-                currentMode = MODE_PAN;
-                dragPrev = {x: e.pageX, y: e.pageY};
+            if (e.button === 0) {
+                if (polygon) {
+                    // enter drag mode
+                    currentMode = MODE_PAN;
+                    dragPrev = {x: e.pageX, y: e.pageY};
+                } else {
+                    currentMode = MODE_DRAW;
+                    polygon = [];
+
+                    var p = eventToElemCoords(e, polyContainerElem);
+                    polygon.push(p);
+                    polygon.push(p); // push again, so we have two points
+                    updatePolygonElem();
+                }
             } else if (e.button === 2) {
                 // right click
                 currentMode = MODE_ZOOM;
                 dragPrev = {x: e.pageX, y: e.pageY};
+            }
+        } else if (currentMode === MODE_DRAW) {
+            if (e.button === 0) {
+                // add another point
+                var p = eventToElemCoords(e, polyContainerElem);
+                polygon.push(p);
+                updatePolygonElem();
             }
         }
     }, false);
