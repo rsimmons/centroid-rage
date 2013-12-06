@@ -97,25 +97,33 @@ document.addEventListener("DOMContentLoaded", function() {
     // interaction
     var MODE_NOTHING = 0;
     var MODE_DRAW = 1;
-    var MODE_ZOOM = 2;
+    var MODE_PAN = 2;
+    var MODE_ZOOM = 3;
     var currentMode = MODE_NOTHING;
 
     var interactionElem = rootSVGElem;
     var dragPrev = null;
+    var panSumX = 0, panSumY = 0;
     var zoomSumY = 0;
 
-    function eventToElemCoords(event, elem) {
-        // return coords of event in coord space of element
+    function pageToElemCoords(pageCoords, elem) {
         var m = elem.getScreenCTM();
         var p = rootSVGElem.createSVGPoint();
-        p.x = event.pageX;
-        p.y = event.pageY;
+        p.x = pageCoords.x;
+        p.y = pageCoords.y;
         p = p.matrixTransform(m.inverse());
         return {x: p.x, y: p.y};
     }
 
-    function setZoom(zoom) {
-        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ")");
+    function eventToElemCoords(event, elem) {
+        // return coords of event in coord space of element
+        var pageCoords = {x: event.pageX, y: event.pageY};
+        return pageToElemCoords(pageCoords, elem);
+    }
+
+    function setPanZoom(zoom) {
+        var zoom = Math.exp(-0.01*zoomSumY);
+        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
     }
 
     function updatePolygonElem() {
@@ -180,9 +188,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("mousedown", function (e) {
         if (currentMode === MODE_NOTHING) {
-            if (e.button === 2) {
+            if ((e.button === 0) && polygon) {
+                // enter drag mode
+                currentMode = MODE_PAN;
+                dragPrev = {x: e.pageX, y: e.pageY};
+            } else if (e.button === 2) {
                 // right click
-                e.preventDefault();
                 currentMode = MODE_ZOOM;
                 dragPrev = {x: e.pageX, y: e.pageY};
             }
@@ -190,7 +201,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }, false);
 
     interactionElem.addEventListener("mouseup", function (e) {
-        if (currentMode === MODE_ZOOM) {
+        if (currentMode === MODE_PAN) {
+            currentMode = MODE_NOTHING;
+        } else if (currentMode === MODE_ZOOM) {
             currentMode = MODE_NOTHING;
         }
     }, false);
@@ -200,10 +213,21 @@ document.addEventListener("DOMContentLoaded", function() {
             var p = eventToElemCoords(e, polyContainerElem);
             polygon[polygon.length-1] = p;
             updatePolygonElem();
+        } else if (currentMode === MODE_PAN) {
+            var prev = pageToElemCoords(dragPrev, polyContainerElem);
+            var cur = eventToElemCoords(e, polyContainerElem);
+
+            var dx = cur.x - prev.x;
+            var dy = cur.y - prev.y;
+            panSumX += dx;
+            panSumY += dy;
+            setPanZoom();
+
+            dragPrev = {x: e.pageX, y: e.pageY};
         } else if (currentMode === MODE_ZOOM) {
             var dy = e.pageY - dragPrev.y;
             zoomSumY += dy;
-            setZoom(Math.exp(-0.01*zoomSumY));
+            setPanZoom();
             dragPrev = {x: e.pageX, y: e.pageY};
         }
     }, false);
