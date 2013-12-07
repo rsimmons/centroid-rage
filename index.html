@@ -69,6 +69,12 @@ function removeAllChildren(elem) {
     }
 }
 
+function pointDist(a, b) {
+    var dx = a.x - b.x;
+    var dy = a.y - b.y;
+    return Math.sqrt(dx*dx + dy*dy);
+}
+
 function polySignedArea(poly) {
     var sum = 0;
     for (var i = 0; i < poly.length; i++) {
@@ -153,12 +159,19 @@ document.addEventListener("DOMContentLoaded", function() {
     var MODE_DRAW = 1;
     var MODE_PAN = 2;
     var MODE_ZOOM = 3;
+    var MODE_MARK_OUTPUT = 4;
     var currentMode = MODE_NOTHING;
 
+    var lastMousePos;
     var interactionElem = rootSVGElem;
     var dragPrev = null;
     var panSumX = 0, panSumY = 0;
     var zoomSumY = 0;
+    var rotation = 0;
+
+    var outputCenter = null;
+    var outputRadius = 0;
+    var outputRegionElem = null;
 
     function pageToElemCoords(pageCoords, elem) {
         var m = elem.getScreenCTM();
@@ -177,7 +190,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function setPanZoom(zoom) {
         var zoom = Math.exp(-0.01*zoomSumY);
-        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
+        var rotDegrees = 180*rotation/Math.PI;
+        zoomGroupElem.setAttributeNS(null, "transform", "rotate(" + rotDegrees  + ") scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
     }
 
     function updatePolygonElem() {
@@ -221,6 +235,10 @@ document.addEventListener("DOMContentLoaded", function() {
             polyContainerElem.removeChild(centroidElem);
             centroidElem = null;
 
+            if (vertexHighlightElem) {
+                polyContainerElem.removeChild(vertexHighlightElem);
+            }
+
             document.getElementById("area-display").textContent = "";
         }
     }
@@ -241,6 +259,24 @@ document.addEventListener("DOMContentLoaded", function() {
             var ph = polygon[highlightedVertexIndex];
             vertexHighlightElem.setAttributeNS(null, "cx", ph.x);
             vertexHighlightElem.setAttributeNS(null, "cy", ph.y);
+        }
+    }
+
+    function updateOutputRegion() {
+        if (outputCenter === null) {
+            if (outputRegionElem) {
+                polyContainerElem.removeChild(outputRegionElem);
+                outputRegionElem = null;
+            }
+        } else {
+            if (!outputRegionElem) {
+                outputRegionElem = svgElem("circle", {fill: "none", stroke: "yellow", "stroke-width": "0.1"});
+                polyContainerElem.appendChild(outputRegionElem);
+            }
+
+            outputRegionElem.setAttributeNS(null, "cx", outputCenter.x);
+            outputRegionElem.setAttributeNS(null, "cy", outputCenter.y);
+            outputRegionElem.setAttributeNS(null, "r", outputRadius);
         }
     }
 
@@ -308,6 +344,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
         polygon = importedPoly;
         updatePolygonElem();
+
+        outputCenter = null;
+        outputRadius = 0;
+        updateOutputRegion();
     }
 
     interactionElem.addEventListener("contextmenu", function (e) {
@@ -386,13 +426,22 @@ document.addEventListener("DOMContentLoaded", function() {
             zoomSumY += dy;
             setPanZoom();
             dragPrev = {x: e.pageX, y: e.pageY};
+        } else if (currentMode === MODE_MARK_OUTPUT) {
+            var p = eventToElemCoords(e, polyContainerElem);
+            outputRadius = pointDist(p, outputCenter);
+            updateOutputRegion();
         }
+        lastMousePos = {x: e.pageX, y: e.pageY};
     }, false);
 
     document.getElementById("clear-button").addEventListener("click", function(e) {
         currentMode = MODE_NOTHING;
         polygon = null;
         updatePolygonElem();
+
+        outputCenter = null;
+        outputRadius = 0;
+        updateOutputRegion();
     }, false);
 
     document.getElementById("import-file-button").addEventListener("click", function(e) {
@@ -417,6 +466,21 @@ document.addEventListener("DOMContentLoaded", function() {
                 controlPanelElem.setAttribute("style", "display:block");
             }
             controlPanelShown = !controlPanelShown;
+        } else if (e.keyCode === 'O'.charCodeAt(0)) {
+            if (currentMode === MODE_NOTHING) {
+                // mark output region
+                currentMode = MODE_MARK_OUTPUT;
+                outputCenter = pageToElemCoords(lastMousePos, polyContainerElem);
+                outputRadius = 0;
+            }
+        }
+    }, false);
+
+    document.addEventListener("keyup", function(e) {
+        if (e.keyCode === 'O'.charCodeAt(0)) {
+            if (currentMode === MODE_MARK_OUTPUT) {
+                currentMode = MODE_NOTHING;
+            }
         }
     }, false);
 
