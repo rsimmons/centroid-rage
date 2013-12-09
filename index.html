@@ -69,6 +69,10 @@ function removeAllChildren(elem) {
     }
 }
 
+function pointCopy(p) {
+    return {x: p.x, y: p.y};
+}
+
 function pointDist(a, b) {
     var dx = a.x - b.x;
     var dy = a.y - b.y;
@@ -365,15 +369,26 @@ document.addEventListener("DOMContentLoaded", function() {
             return;
         }
 
-        var tempPoly = polygon;
-        var centroid = polyCentroid(tempPoly);
+        // figure out what segments are in output region. segment index i is formed by vertex i and i+1
+        var segmentInOutput = [];
+        for (var i = 0; i < polygon.length; i++) {
+            segmentInOutput.push(false);
+        }
+        for (var i = 0; i < polygon.length; i++) {
+            if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
+                segmentInOutput[i] = true;
+                segmentInOutput[(i-1+polygon.length)%polygon.length] = true;
+            }
+        }
 
-        // find furthest point from centroid within output region
+        // compute initial down vector by using furthest point from centroid within output region
+        // TODO: this should probably be changed to use selected segments, not output region circle
+        var centroid = polyCentroid(polygon);
         var maxDistSqr;
         var maxDistIdx;
-        for (var i = 0; i < tempPoly.length; i++) {
-            if (pointDistSqr(tempPoly[i], outputCenter) < outputRadius*outputRadius) {
-                var dsqr = pointDistSqr(tempPoly[i], centroid);
+        for (var i = 0; i < polygon.length; i++) {
+            if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
+                var dsqr = pointDistSqr(polygon[i], centroid);
                 if ((maxDistSqr === undefined) || (dsqr > maxDistSqr)) {
                     maxDistSqr = dsqr;
                     maxDistIdx = i;
@@ -381,7 +396,84 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        var downVec = normalDiff(centroid, tempPoly[maxDistIdx]);
+        var balancePoint = polygon[maxDistIdx];
+        var downVec = normalDiff(centroid, balancePoint);
+
+        // find a segment not in output region to start with, any is fine
+        var startSegmentIdx;
+        for (var i = 0; i < polygon.length; i++) {
+            if (!segmentInOutput[i]) {
+                startSegmentIdx = i;
+                break;
+            }
+        }
+        assert(startSegmentIdx !== undefined);
+
+        // figure out cutting line
+        var cutDepth = 10.0;
+        var cutA = downVec.x;
+        var cutB = downVec.y;
+        var cutC = -(cutA*balancePoint.x + cutB*balancePoint.y) + cutDepth;
+
+        // do the cut
+        var segIdx = startSegmentIdx;
+        var cutPoly = []; // result of cutting
+        var inCut = false; // are we in cut?
+        var cutIntersections = []; // points where polygon crossed cut
+        while (true) {
+            var segStart = polygon[segIdx];
+            var segEnd = polygon[(segIdx+1)%polygon.length];
+
+            if (segmentInOutput[segIdx]) {
+                // TODO: test segment against cutting line
+                var segV = {x: segEnd.x - segStart.x, y: segEnd.y - segStart.y};
+                var denom = cutA*segV.x + cutB*segV.y;
+                assert(denom !== 0);
+                var t = -(cutA*segStart.x + cutB*segStart.y + cutC)/denom;
+
+                if ((t > 0) && (t <= 1)) {
+                    var inter = {x: segStart.x + t*segV.x, y: segStart.y + t*segV.y};
+
+                    cutIntersections.push(inter);
+
+                    if (inCut) {
+                        // coming out of cut back to un-cut
+
+                        cutPoly.push(inter); // add intersection point
+
+                        inCut = false; // no longer in cut
+
+                        cutPoly.push(pointCopy(segEnd));
+                    } else {
+                        // going into cut
+                        cutPoly.push(inter); // add intersection point
+
+                        inCut = true;
+                    }
+                } else {
+                    // segment does not cross cutting line
+                    if (inCut) {
+                        // inside cut, so ignore this segment
+                    } else {
+                        // outside cut, so copy of segment endpoint
+                        cutPoly.push(pointCopy(segEnd));
+                    }
+                }
+            } else {
+                assert(inCut === false); // should have come back out of cut if we aren't in output region
+                cutPoly.push(pointCopy(segEnd));
+            }
+
+            // move to next segment index, wrapping around, terminate if we went all the way around
+            segIdx++;
+            segIdx = segIdx % polygon.length;
+            if (segIdx === startSegmentIdx) {
+                break;
+            }
+        }
+
+        polygon = cutPoly;
+        updatePolygonElem();
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
         setPanZoom();
     }
