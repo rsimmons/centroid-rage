@@ -34,7 +34,7 @@ body {
 <body>
 <div id="main"></div>
 <div id="control-panel">
-    <div><button id="clear-button">Clear</button></div>
+    <div><button id="clear-button">Clear</button> <button id="balance-button">Balance</button></div>
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
     <div><label>Area: <span id="area-display"></span></label></div>
 </div>
@@ -73,6 +73,19 @@ function pointDist(a, b) {
     var dx = a.x - b.x;
     var dy = a.y - b.y;
     return Math.sqrt(dx*dx + dy*dy);
+}
+
+function pointDistSqr(a, b) {
+    var dx = a.x - b.x;
+    var dy = a.y - b.y;
+    return dx*dx + dy*dy;
+}
+
+function normalDiff(from, to) {
+    var dx = to.x - from.x;
+    var dy = to.y - from.y;
+    var invmag = 1.0/Math.sqrt(dx*dx + dy*dy);
+    return {x: invmag*dx, y: invmag*dy};
 }
 
 function polySignedArea(poly) {
@@ -117,10 +130,7 @@ function nearestVertex(poly, p, radius) {
     var nearestDistSqr;
 
     for (var i = 0; i < poly.length; i++) {
-        var q = poly[i];
-        var dx = q.x - p.x;
-        var dy = q.y - p.y;
-        var distSqr = dx*dx + dy*dy;
+        var distSqr = pointDistSqr(poly[i], p);
         if ((distSqr <= radius) && ((nearestDistSqr === undefined) || (distSqr < nearestDistSqr))) {
             nearestIndex = i;
             nearestDistSqr = distSqr;
@@ -350,6 +360,32 @@ document.addEventListener("DOMContentLoaded", function() {
         updateOutputRegion();
     }
 
+    function doBalance() {
+        if (outputCenter === null) {
+            return;
+        }
+
+        var tempPoly = polygon;
+        var centroid = polyCentroid(tempPoly);
+
+        // find furthest point from centroid within output region
+        var maxDistSqr;
+        var maxDistIdx;
+        for (var i = 0; i < tempPoly.length; i++) {
+            if (pointDistSqr(tempPoly[i], outputCenter) < outputRadius*outputRadius) {
+                var dsqr = pointDistSqr(tempPoly[i], centroid);
+                if ((maxDistSqr === undefined) || (dsqr > maxDistSqr)) {
+                    maxDistSqr = dsqr;
+                    maxDistIdx = i;
+                }
+            }
+        }
+
+        var downVec = normalDiff(centroid, tempPoly[maxDistIdx]);
+        rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
+        setPanZoom();
+    }
+
     interactionElem.addEventListener("contextmenu", function (e) {
         e.preventDefault();
         if (currentMode == MODE_DRAW) {
@@ -442,6 +478,10 @@ document.addEventListener("DOMContentLoaded", function() {
         outputCenter = null;
         outputRadius = 0;
         updateOutputRegion();
+    }, false);
+
+    document.getElementById("balance-button").addEventListener("click", function(e) {
+        doBalance();
     }, false);
 
     document.getElementById("import-file-button").addEventListener("click", function(e) {
