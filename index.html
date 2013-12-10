@@ -433,21 +433,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        // compute initial down vector by using furthest point from centroid within output region
-        // TODO: this should probably be changed to use selected segments, not output region circle
-        var centroid = polyCentroid(polygon);
-        var maxDistSqr;
-        var maxDistIdx;
-        for (var i = 0; i < polygon.length; i++) {
-            if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
-                var dsqr = pointDistSqr(polygon[i], centroid);
-                if ((maxDistSqr === undefined) || (dsqr > maxDistSqr)) {
-                    maxDistSqr = dsqr;
-                    maxDistIdx = i;
-                }
-            }
-        }
-
         // find a segment not in output region to start with, any is fine
         var startSegmentIdx;
         for (var i = 0; i < polygon.length; i++) {
@@ -458,8 +443,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         assert(startSegmentIdx !== undefined);
 
-        var balancePoint = polygon[maxDistIdx];
-        var downVec = normalDiff(centroid, balancePoint);
+        var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
         var MAX_ITERATIONS = 50;
         while (true) {
@@ -572,7 +556,7 @@ document.addEventListener("DOMContentLoaded", function() {
             var baseCenter = {x: 0.5*(leftmostIntersection.x + rightmostIntersection.x), y: 0.5*(leftmostIntersection.y + rightmostIntersection.y)};
 
             // change down vector to have base center directly under new centroid
-            centroid = polyCentroid(cutPoly);
+            var centroid = polyCentroid(cutPoly);
             var newDownVec = normalDiff(centroid, baseCenter);
             var downDot = vecDot(downVec, newDownVec);
 
