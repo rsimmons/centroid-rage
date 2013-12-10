@@ -420,6 +420,7 @@ document.addEventListener("DOMContentLoaded", function() {
         var balancePoint = polygon[maxDistIdx];
         var downVec = normalDiff(centroid, balancePoint);
         var iterationCount = 0;
+        var MAX_ITERATIONS = 50;
         while (true) {
             console.log("downVec", downVec);
 
@@ -519,8 +520,8 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             iterationCount++;
-            if (iterationCount >= 20) {
-                break;
+            if (iterationCount >= MAX_ITERATIONS) {
+                assert(false); // too many iterations, something not right
             }
 
             // find center point of new base
@@ -528,7 +529,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // change down vector to have base center directly under new centroid
             centroid = polyCentroid(cutPoly);
-            downVec = normalDiff(centroid, baseCenter);
+            var newDownVec = normalDiff(centroid, baseCenter);
+            var downDot = vecDot(downVec, newDownVec);
+            if (downDot > (1.0 - 1e-20)) {
+                // converged sufficiently
+                break;
+            }
+            downVec = newDownVec;
         }
 
         polygon = cutPoly;
