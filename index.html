@@ -437,7 +437,7 @@ document.addEventListener("DOMContentLoaded", function() {
             console.log("downVec", downVec);
 
             // find maximum dot product against downVec that is within cutting region
-            var maxDot;
+            var maxDot = undefined;
             for (var i = 0; i < polygon.length; i++) {
                 if (segmentInOutput[i]) {
                     var d1 = vecDot(polygon[i], downVec);
@@ -519,8 +519,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // now that we've cut the poly, find the extrema of the intersection points (the new base)
             assert(cutIntersections.length >= 2);
-            var leftmostIntersection, rightmostIntersection;
-            var leftmostDot, rightmostDot;
+            var leftmostIntersection = null, rightmostIntersection = null;
+            var leftmostDot = undefined, rightmostDot = undefined;
             var rightVec = {x: downVec.y, y: -downVec.x};
             for (var i = 0; i < cutIntersections.length; i++) {
                 var dot = vecDot(rightVec, cutIntersections[i]);
