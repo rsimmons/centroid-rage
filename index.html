@@ -27,7 +27,15 @@ body {
     right: 0;
     padding: 5px;
     box-sizing: border-box;
-    background-color: rgba(100,100,100,0.8);
+    background-color: rgba(87,107,133,0.8);
+}
+
+.drag-pad {
+    display: inline-block;
+    background-color: darkgrey;
+    padding: 5px;
+    border: 1px solid black;
+    cursor: pointer;
 }
 </style>
 </head>
@@ -36,6 +44,7 @@ body {
 <div id="control-panel">
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
     <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
+    <div><div id="rotate-pad" class="drag-pad">Rotate</div></div>
     <div><button id="clear-button">Clear</button></div>
     <div><label>Cursor: <span id="cursor-display"></span></label></div>
     <div><label>Area: <span id="area-display"></span></label></div>
@@ -187,6 +196,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var MODE_DRAW = 1;
     var MODE_PAN = 2;
     var MODE_MARK_OUTPUT = 3;
+    var MODE_ROTATE = 4;
     var currentMode = MODE_NOTHING;
 
     var lastMousePos;
@@ -218,7 +228,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function setPanZoom(zoom) {
         var zoom = Math.exp(-0.005*zoomSumY);
         var rotDegrees = 180*rotation/Math.PI;
-        zoomGroupElem.setAttributeNS(null, "transform", "rotate(" + rotDegrees  + ") scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
+        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ") rotate(" + rotDegrees + ")");
     }
 
     function updatePolygonElem() {
@@ -619,13 +629,15 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }, false);
 
-    interactionElem.addEventListener("mouseup", function (e) {
+    document.addEventListener("mouseup", function (e) {
         if (currentMode === MODE_PAN) {
+            currentMode = MODE_NOTHING;
+        } else if (currentMode === MODE_ROTATE) {
             currentMode = MODE_NOTHING;
         }
     }, false);
 
-    interactionElem.addEventListener("mousemove", function (e) {
+    document.addEventListener("mousemove", function (e) {
         var cur = eventToElemCoords(e, polyContainerElem);
         document.getElementById("cursor-display").textContent = cur.x.toFixed(4) + ", " + cur.y.toFixed(4);
 
@@ -637,10 +649,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 updatedHighlightedVertex();
             }
         } else if (currentMode === MODE_DRAW) {
+            e.preventDefault();
             var p = eventToElemCoords(e, polyContainerElem);
             polygon[polygon.length-1] = p;
             updatePolygonElem();
         } else if (currentMode === MODE_PAN) {
+            e.preventDefault();
             var prev = pageToElemCoords(dragPrev, polyContainerElem);
             var cur = eventToElemCoords(e, polyContainerElem);
 
@@ -651,7 +665,16 @@ document.addEventListener("DOMContentLoaded", function() {
             setPanZoom();
 
             dragPrev = {x: e.pageX, y: e.pageY};
+        } else if (currentMode === MODE_ROTATE) {
+            e.preventDefault();
+            var dy = e.pageY - dragPrev.y;
+            rotation += 0.01*dy;
+
+            setPanZoom();
+
+            dragPrev = {x: e.pageX, y: e.pageY};
         } else if (currentMode === MODE_MARK_OUTPUT) {
+            e.preventDefault();
             var p = eventToElemCoords(e, polyContainerElem);
             outputRadius = pointDist(p, outputCenter);
             updateOutputRegion();
@@ -689,6 +712,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 importSVG(e.target.result);
             }
             reader.readAsText(fileInput.files[0]);
+        }
+    }, false);
+
+    document.getElementById("rotate-pad").addEventListener("mousedown", function(e) {
+        e.preventDefault();
+        if (currentMode === MODE_NOTHING) {
+            currentMode = MODE_ROTATE;
+            dragPrev = {x: e.pageX, y: e.pageY};
         }
     }, false);
 
