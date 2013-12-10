@@ -37,9 +37,10 @@ body {
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
     <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
     <div><button id="clear-button">Clear</button></div>
+    <div><label>Cursor: <span id="cursor-display"></span></label></div>
     <div><label>Area: <span id="area-display"></span></label></div>
     <div><label>Base Width: <span id="base-width-display"></span></label></div>
-    <div><label>Cursor: <span id="cursor-display"></span></label></div>
+    <div><label>Critical Angle: <span id="crit-angle-display"></span></label></div>
 </div>
 <script>
 "use strict";
@@ -253,14 +254,31 @@ document.addEventListener("DOMContentLoaded", function() {
             // calculate and display area if done drawing
             if (currentMode !== MODE_DRAW) {
                 var area = Math.abs(polySignedArea(polygon));
-                document.getElementById("area-display").textContent = area;
+                document.getElementById("area-display").textContent = area.toFixed(2);
             }
 
             if (baseLeftCorner && baseRightCorner) {
                 var baseWidth = pointDist(baseLeftCorner, baseRightCorner);
-                document.getElementById("base-width-display").textContent = baseWidth;
+                document.getElementById("base-width-display").textContent = baseWidth.toFixed(2);
+
+                var rightVec = normalDiff(baseLeftCorner, baseRightCorner);
+                var downVec = {x: -rightVec.y, y: rightVec.x};
+
+                var leftMinusCog = pointSub(baseLeftCorner, centroid);
+                var rightMinusCog = pointSub(baseRightCorner, centroid);
+
+                var centroidHeight = vecDot(downVec, leftMinusCog);
+                assert(Math.abs(vecDot(downVec, rightMinusCog) - centroidHeight) < 1e-10); // shouldn't matter which corner
+
+                var leftHalfWidth = -vecDot(leftMinusCog, rightVec);
+                var rightHalfWidth = vecDot(rightMinusCog, rightVec);
+                assert(Math.abs(leftHalfWidth-rightHalfWidth)/(0.5*(leftHalfWidth+rightHalfWidth)) < 0.01); // half-widths should be very close to each other
+
+                var critAngle = Math.atan2(Math.min(leftHalfWidth, rightHalfWidth), centroidHeight)*180.0/Math.PI;
+                document.getElementById("crit-angle-display").textContent = critAngle.toFixed(2) + "\u00B0";
             } else {
                 document.getElementById("base-width-display").textContent = "";
+                document.getElementById("crit-angle-display").textContent = "";
             }
         } else {
             polyContainerElem.removeChild(polygonElem);
@@ -275,6 +293,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             document.getElementById("area-display").textContent = "";
             document.getElementById("base-width-display").textContent = "";
+            document.getElementById("crit-angle-display").textContent = "";
         }
     }
 
