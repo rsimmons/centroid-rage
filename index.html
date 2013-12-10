@@ -468,7 +468,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 var segEnd = polygon[(segIdx+1)%polygon.length];
 
                 if (segmentInOutput[segIdx]) {
-                    // TODO: test segment against cutting line
+                    // test segment against cutting line
                     var segV = pointSub(segEnd, segStart);
                     var denom = cutA*segV.x + cutB*segV.y;
                     var t = undefined;
