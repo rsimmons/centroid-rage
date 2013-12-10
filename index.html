@@ -546,12 +546,14 @@ document.addEventListener("DOMContentLoaded", function() {
             centroid = polyCentroid(cutPoly);
             var newDownVec = normalDiff(centroid, baseCenter);
             var downDot = vecDot(downVec, newDownVec);
-            downVec = newDownVec;
+
+            // is the newDownVec basically the same as downVec?
             if (downDot > (1.0 - 1e-15)) {
                 // converged sufficiently
-                console.log("final downVec", downVec);
                 break;
             }
+
+            downVec = newDownVec;
         }
 
         polygon = cutPoly;
