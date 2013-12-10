@@ -39,6 +39,7 @@ body {
     <div><button id="clear-button">Clear</button></div>
     <div><label>Area: <span id="area-display"></span></label></div>
     <div><label>Base Width: <span id="base-width-display"></span></label></div>
+    <div><label>Cursor: <span id="cursor-display"></span></label></div>
 </div>
 <script>
 "use strict";
@@ -613,6 +614,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }, false);
 
     interactionElem.addEventListener("mousemove", function (e) {
+        var cur = eventToElemCoords(e, polyContainerElem);
+        document.getElementById("cursor-display").textContent = cur.x.toFixed(4) + ", " + cur.y.toFixed(4);
+
         if (currentMode === MODE_NOTHING) {
             if (polygon) {
                 var cur = eventToElemCoords(e, polyContainerElem);
