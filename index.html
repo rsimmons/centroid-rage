@@ -34,8 +34,9 @@ body {
 <body>
 <div id="main"></div>
 <div id="control-panel">
-    <div><button id="clear-button">Clear</button> <button id="balance-button">Balance</button></div>
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
+    <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
+    <div><button id="clear-button">Clear</button></div>
     <div><label>Area: <span id="area-display"></span></label></div>
 </div>
 <script>
@@ -377,6 +378,8 @@ document.addEventListener("DOMContentLoaded", function() {
             return;
         }
 
+        var flattenDepth = +(document.getElementById("balance-flatten-depth").value);
+
         // figure out what segments are in output region. segment index i is formed by vertex i and i+1
         var segmentInOutput = [];
         for (var i = 0; i < polygon.length; i++) {
@@ -437,10 +440,9 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             // figure out cutting line
-            var cutDepth = 10.0;
             var cutA = downVec.x;
             var cutB = downVec.y;
-            var cutC = -maxDot + cutDepth;
+            var cutC = -maxDot + flattenDepth;
 
             // do the cut
             var segIdx = startSegmentIdx;
