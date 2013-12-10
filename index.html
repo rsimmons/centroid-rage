@@ -458,10 +458,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     // TODO: test segment against cutting line
                     var segV = pointSub(segEnd, segStart);
                     var denom = cutA*segV.x + cutB*segV.y;
-                    assert(denom !== 0);
-                    var t = -(cutA*segStart.x + cutB*segStart.y + cutC)/denom;
+                    var t = undefined;
 
-                    if ((t > 0) && (t <= 1)) {
+                    if (denom !== 0) {
+                        t = -(cutA*segStart.x + cutB*segStart.y + cutC)/denom;
+                    }
+
+                    if ((t !== undefined) && (t > 0) && (t <= 1)) {
                         var inter = {x: segStart.x + t*segV.x, y: segStart.y + t*segV.y};
 
                         cutIntersections.push(inter);
