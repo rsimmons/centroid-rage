@@ -186,8 +186,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var MODE_NOTHING = 0;
     var MODE_DRAW = 1;
     var MODE_PAN = 2;
-    var MODE_ZOOM = 3;
-    var MODE_MARK_OUTPUT = 4;
+    var MODE_MARK_OUTPUT = 3;
     var currentMode = MODE_NOTHING;
 
     var lastMousePos;
@@ -217,7 +216,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function setPanZoom(zoom) {
-        var zoom = Math.exp(-0.01*zoomSumY);
+        var zoom = Math.exp(-0.005*zoomSumY);
         var rotDegrees = 180*rotation/Math.PI;
         zoomGroupElem.setAttributeNS(null, "transform", "rotate(" + rotDegrees  + ") scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
     }
@@ -609,10 +608,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     polygon.push(p); // push again, so we have two points
                     updatePolygonElem();
                 }
-            } else if (e.button === 2) {
-                // right click
-                currentMode = MODE_ZOOM;
-                dragPrev = {x: e.pageX, y: e.pageY};
             }
         } else if (currentMode === MODE_DRAW) {
             if (e.button === 0) {
@@ -626,8 +621,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("mouseup", function (e) {
         if (currentMode === MODE_PAN) {
-            currentMode = MODE_NOTHING;
-        } else if (currentMode === MODE_ZOOM) {
             currentMode = MODE_NOTHING;
         }
     }, false);
@@ -658,17 +651,19 @@ document.addEventListener("DOMContentLoaded", function() {
             setPanZoom();
 
             dragPrev = {x: e.pageX, y: e.pageY};
-        } else if (currentMode === MODE_ZOOM) {
-            var dy = e.pageY - dragPrev.y;
-            zoomSumY += dy;
-            setPanZoom();
-            dragPrev = {x: e.pageX, y: e.pageY};
         } else if (currentMode === MODE_MARK_OUTPUT) {
             var p = eventToElemCoords(e, polyContainerElem);
             outputRadius = pointDist(p, outputCenter);
             updateOutputRegion();
         }
         lastMousePos = {x: e.pageX, y: e.pageY};
+    }, false);
+
+    interactionElem.addEventListener("mousewheel", function(e) {
+        if (currentMode === MODE_NOTHING) {
+            zoomSumY += e.wheelDelta;
+            setPanZoom();
+        }
     }, false);
 
     document.getElementById("clear-button").addEventListener("click", function(e) {
