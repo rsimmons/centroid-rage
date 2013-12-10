@@ -38,6 +38,7 @@ body {
     <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
     <div><button id="clear-button">Clear</button></div>
     <div><label>Area: <span id="area-display"></span></label></div>
+    <div><label>Base Width: <span id="base-width-display"></span></label></div>
 </div>
 <script>
 "use strict";
@@ -172,6 +173,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var polygonElem = null;
     var centroidElem = null;
 
+    var baseLeftCorner = null, baseRightCorner = null; // points, not index
+
     var highlightedVertexIndex = null;
     var vertexHighlightElem = null;
 
@@ -251,6 +254,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 var area = Math.abs(polySignedArea(polygon));
                 document.getElementById("area-display").textContent = area;
             }
+
+            if (baseLeftCorner && baseRightCorner) {
+                var baseWidth = pointDist(baseLeftCorner, baseRightCorner);
+                document.getElementById("base-width-display").textContent = baseWidth;
+            } else {
+                document.getElementById("base-width-display").textContent = "";
+            }
         } else {
             polyContainerElem.removeChild(polygonElem);
             polygonElem = null;
@@ -263,6 +273,7 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             document.getElementById("area-display").textContent = "";
+            document.getElementById("base-width-display").textContent = "";
         }
     }
 
@@ -366,6 +377,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         polygon = importedPoly;
+        baseLeftCorner = baseRightCorner = null;
         updatePolygonElem();
 
         outputCenter = null;
@@ -543,6 +555,8 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         polygon = cutPoly;
+        baseLeftCorner = leftmostIntersection;
+        baseRightCorner = rightmostIntersection;
         updatePolygonElem();
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
         setPanZoom();
@@ -635,6 +649,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("clear-button").addEventListener("click", function(e) {
         currentMode = MODE_NOTHING;
         polygon = null;
+        baseLeftCorner = baseRightCorner = null;
         updatePolygonElem();
 
         outputCenter = null;
