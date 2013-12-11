@@ -255,9 +255,13 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function updatePolygonElem() {
+        // compute "zoom correction factor", so we can draw stuff in polyContainerElem (mostly stroke widths) and have it come out in certain screen space scale
+        var m = polyContainerElem.getScreenCTM();
+        var zoomCorrection = 1.0/(0.5*(m.a+m.d));
+
         if (polygon) {
             if (!polygonElem) {
-                polygonElem = svgElem("path", {fill: "none", stroke: "black", "stroke-width": "0.1"});
+                polygonElem = svgElem("path");
                 polyContainerElem.appendChild(polygonElem);
 
                 centroidElem = svgElem("circle", {fill: "red", r: "1"});
@@ -270,8 +274,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 dataStr += "L " +  p.x + " " + p.y + " ";
             }
 
-            // close and fill if done drawing
-            if (currentMode !== MODE_DRAW) {
+            if (currentMode === MODE_DRAW) {
+                // set stroke since still drawing
+                polygonElem.setAttributeNS(null, "fill", "none");
+                polygonElem.setAttributeNS(null, "stroke", "black");
+                polygonElem.setAttributeNS(null, "stroke-width", zoomCorrection);
+            } else {
+                // close and fill since done drawing
+                polygonElem.setAttributeNS(null, "stroke", "none");
                 polygonElem.setAttributeNS(null, "fill", "rgb(200,200,200)");
                 dataStr += "Z";
             }
