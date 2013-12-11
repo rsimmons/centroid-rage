@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var interactionElem = rootSVGElem;
     var dragPrev = null;
 
-    var selectBoxStart = null, selectBoxEnd = null;
+    var selectBoxStart = null, selectBoxEnd = null; // in page coords
     var selectBoxElem = null;
 
     var panSumX = 0, panSumY = 0;
@@ -373,10 +373,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 selectBoxContainerElem.appendChild(selectBoxElem);
             }
 
-            var x0 = Math.min(selectBoxStart.x, selectBoxEnd.x);
-            var x1 = Math.max(selectBoxStart.x, selectBoxEnd.x);
-            var y0 = Math.min(selectBoxStart.y, selectBoxEnd.y);
-            var y1 = Math.max(selectBoxStart.y, selectBoxEnd.y);
+            var start = pageToElemCoords(selectBoxStart, selectBoxContainerElem);
+            var end = pageToElemCoords(selectBoxEnd, selectBoxContainerElem);
+
+            var x0 = Math.min(start.x, end.x);
+            var x1 = Math.max(start.x, end.x);
+            var y0 = Math.min(start.y, end.y);
+            var y1 = Math.max(start.y, end.y);
 
             selectBoxElem.setAttributeNS(null, "x", x0);
             selectBoxElem.setAttributeNS(null, "y", y0);
@@ -618,7 +621,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (e.button === 0) {
                 if (e.shiftKey) {
                     currentMode = MODE_SELECT_BOX;
-                    selectBoxStart = selectBoxEnd = eventToElemCoords(e, selectBoxContainerElem); //{x: e.pageX, y: e.pageY};
+                    selectBoxStart = selectBoxEnd = {x: e.pageX, y: e.pageY};
                     updateSelectBox();
                 } else {
                     if (polygon) {
@@ -701,7 +704,7 @@ document.addEventListener("DOMContentLoaded", function() {
             updateOutputRegion();
         } else if (currentMode === MODE_SELECT_BOX) {
             e.preventDefault();
-            selectBoxEnd = eventToElemCoords(e, selectBoxContainerElem);
+            selectBoxEnd = {x: e.pageX, y: e.pageY};
             updateSelectBox();
         }
         lastMousePos = {x: e.pageX, y: e.pageY};
