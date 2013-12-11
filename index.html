@@ -117,6 +117,10 @@ function normalDiff(from, to) {
     return {x: invmag*dx, y: invmag*dy};
 }
 
+function pointInsideHalfspace(p, h) {
+    return (p.x*h.a + p.y*h.b + h.c) > 0;
+}
+
 function polySignedArea(poly) {
     var sum = 0;
     for (var i = 0; i < poly.length; i++) {
@@ -443,16 +447,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        // find a segment not in output region to start with, any is fine
-        var startSegmentIdx;
-        for (var i = 0; i < polygon.length; i++) {
-            if (!segmentInOutput[i]) {
-                startSegmentIdx = i;
-                break;
-            }
-        }
-        assert(startSegmentIdx !== undefined);
-
         var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
         var MAX_ITERATIONS = 50;
@@ -475,28 +469,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             }
 
-            // figure out cutting line
-            var cutA = downVec.x;
-            var cutB = downVec.y;
-            var cutC = -maxDot + flattenDepth;
+            // figure out cutting halfspace. we retain the parts in the positive part of the halfspace, so this is really the "not-cut-away halfspace"
+            var cutHalfspace = {a: -downVec.x, b: -downVec.y, c: maxDot - flattenDepth};
 
             // do the cut
-            var segIdx = startSegmentIdx;
             var cutPoly = []; // result of cutting
-            var inCut = false; // are we in cut?
+            var inCut = !pointInsideHalfspace(polygon[0], cutHalfspace); // are we in cut-away part?
             var cutIntersections = []; // points where polygon crossed cut
-            while (true) {
+            for (var segIdx = 0; segIdx < polygon.length; segIdx++) {
                 var segStart = polygon[segIdx];
                 var segEnd = polygon[(segIdx+1)%polygon.length];
 
                 if (segmentInOutput[segIdx]) {
                     // test segment against cutting line
                     var segV = pointSub(segEnd, segStart);
-                    var denom = cutA*segV.x + cutB*segV.y;
+                    var denom = cutHalfspace.a*segV.x + cutHalfspace.b*segV.y;
                     var t = undefined;
 
                     if (denom !== 0) {
-                        t = -(cutA*segStart.x + cutB*segStart.y + cutC)/denom;
+                        t = -(cutHalfspace.a*segStart.x + cutHalfspace.b*segStart.y + cutHalfspace.c)/denom;
                     }
 
                     if ((t !== undefined) && (t > 0) && (t <= 1)) {
@@ -530,13 +521,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 } else {
                     assert(inCut === false); // should have come back out of cut if we aren't in output region
                     cutPoly.push(pointCopy(segEnd));
-                }
-
-                // move to next segment index, wrapping around, terminate if we went all the way around
-                segIdx++;
-                segIdx = segIdx % polygon.length;
-                if (segIdx === startSegmentIdx) {
-                    break;
                 }
             }
 
