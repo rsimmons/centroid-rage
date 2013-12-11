@@ -80,6 +80,13 @@ function svgElem(name, attrs) {
     return elem;
 }
 
+function getTransformBetween(fromElem, toElem) {
+    // should be able to use built-in fromElem.getTransformToElement(toElem),
+    //  but buggy in some browsers when crossing nested svg elements.
+    //  see https://bugs.webkit.org/show_bug.cgi?id=86010
+    return toElem.getScreenCTM().inverse().multiply(fromElem.getScreenCTM());
+}
+
 function removeAllChildren(elem) {
     while (elem.hasChildNodes()) {
         elem.removeChild(elem.childNodes[0]);
