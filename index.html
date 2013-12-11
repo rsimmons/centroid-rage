@@ -190,6 +190,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var polyContainerElem = modelTransformGroupElem;
 
+    // make selection box container but child of root, so that its coordinates are scaled 1 to 1 with pixels
+    var selectBoxContainerElem = svgElem("g");
+    rootSVGElem.appendChild(selectBoxContainerElem);
+
     // polygon
     var polygon = null; // array of objects with x and y attrs
     var polygonElem = null;
@@ -208,11 +212,16 @@ document.addEventListener("DOMContentLoaded", function() {
     var MODE_PAN = 2;
     var MODE_MARK_OUTPUT = 3;
     var MODE_ROTATE = 4;
+    var MODE_SELECT_BOX = 5;
     var currentMode = MODE_NOTHING;
 
     var lastMousePos;
     var interactionElem = rootSVGElem;
     var dragPrev = null;
+
+    var selectBoxStart = null, selectBoxEnd = null;
+    var selectBoxElem = null;
+
     var panSumX = 0, panSumY = 0;
     var zoomLog = -6; // NOTE: default zoom level is somewhat arbitrary
     var rotation = 0;
@@ -354,6 +363,28 @@ document.addEventListener("DOMContentLoaded", function() {
             outputRegionElem.setAttributeNS(null, "cx", outputCenter.x);
             outputRegionElem.setAttributeNS(null, "cy", outputCenter.y);
             outputRegionElem.setAttributeNS(null, "r", outputRadius);
+        }
+    }
+
+    function updateSelectBox() {
+        if (currentMode === MODE_SELECT_BOX) {
+            if (!selectBoxElem) {
+                selectBoxElem = svgElem("rect", {fill: "none", stroke: "orange", "stroke-width": "1", "stroke-dasharray": "5, 2"});
+                selectBoxContainerElem.appendChild(selectBoxElem);
+            }
+
+            var x0 = Math.min(selectBoxStart.x, selectBoxEnd.x);
+            var x1 = Math.max(selectBoxStart.x, selectBoxEnd.x);
+            var y0 = Math.min(selectBoxStart.y, selectBoxEnd.y);
+            var y1 = Math.max(selectBoxStart.y, selectBoxEnd.y);
+
+            selectBoxElem.setAttributeNS(null, "x", x0);
+            selectBoxElem.setAttributeNS(null, "y", y0);
+            selectBoxElem.setAttributeNS(null, "width", x1 - x0);
+            selectBoxElem.setAttributeNS(null, "height", y1 - y0);
+        } else {
+            selectBoxContainerElem.removeChild(selectBoxElem);
+            selectBoxElem = null;
         }
     }
 
@@ -585,18 +616,24 @@ document.addEventListener("DOMContentLoaded", function() {
     interactionElem.addEventListener("mousedown", function (e) {
         if (currentMode === MODE_NOTHING) {
             if (e.button === 0) {
-                if (polygon) {
-                    // enter drag mode
-                    currentMode = MODE_PAN;
-                    dragPrev = {x: e.pageX, y: e.pageY};
+                if (e.shiftKey) {
+                    currentMode = MODE_SELECT_BOX;
+                    selectBoxStart = selectBoxEnd = eventToElemCoords(e, selectBoxContainerElem); //{x: e.pageX, y: e.pageY};
+                    updateSelectBox();
                 } else {
-                    currentMode = MODE_DRAW;
-                    polygon = [];
+                    if (polygon) {
+                        // enter drag mode
+                        currentMode = MODE_PAN;
+                        dragPrev = {x: e.pageX, y: e.pageY};
+                    } else {
+                        currentMode = MODE_DRAW;
+                        polygon = [];
 
-                    var p = eventToElemCoords(e, polyContainerElem);
-                    polygon.push(p);
-                    polygon.push(p); // push again, so we have two points
-                    updatePolygonElem();
+                        var p = eventToElemCoords(e, polyContainerElem);
+                        polygon.push(p);
+                        polygon.push(p); // push again, so we have two points
+                        updatePolygonElem();
+                    }
                 }
             }
         } else if (currentMode === MODE_DRAW) {
@@ -614,6 +651,10 @@ document.addEventListener("DOMContentLoaded", function() {
             currentMode = MODE_NOTHING;
         } else if (currentMode === MODE_ROTATE) {
             currentMode = MODE_NOTHING;
+        } else if (currentMode === MODE_SELECT_BOX) {
+            currentMode = MODE_NOTHING;
+            selectBoxStart = selectBoxEnd = null;
+            updateSelectBox();
         }
     }, false);
 
@@ -658,6 +699,10 @@ document.addEventListener("DOMContentLoaded", function() {
             var p = eventToElemCoords(e, polyContainerElem);
             outputRadius = pointDist(p, outputCenter);
             updateOutputRegion();
+        } else if (currentMode === MODE_SELECT_BOX) {
+            e.preventDefault();
+            selectBoxEnd = eventToElemCoords(e, selectBoxContainerElem);
+            updateSelectBox();
         }
         lastMousePos = {x: e.pageX, y: e.pageY};
     }, false);
