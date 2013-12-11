@@ -429,21 +429,23 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function doBalance() {
-        if (outputCenter === null) {
-            return;
-        }
-
         var flattenDepth = +(document.getElementById("balance-flatten-depth").value);
 
         // figure out what segments are in output region. segment index i is formed by vertex i and i+1
         var segmentInOutput = [];
-        for (var i = 0; i < polygon.length; i++) {
-            segmentInOutput.push(false);
-        }
-        for (var i = 0; i < polygon.length; i++) {
-            if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
-                segmentInOutput[i] = true;
-                segmentInOutput[(i-1+polygon.length)%polygon.length] = true;
+        if (outputCenter === null) {
+            for (var i = 0; i < polygon.length; i++) {
+                segmentInOutput.push(true);
+            }
+        } else {
+            for (var i = 0; i < polygon.length; i++) {
+                segmentInOutput.push(false);
+            }
+            for (var i = 0; i < polygon.length; i++) {
+                if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
+                    segmentInOutput[i] = true;
+                    segmentInOutput[(i-1+polygon.length)%polygon.length] = true;
+                }
             }
         }
 
