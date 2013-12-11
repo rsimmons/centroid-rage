@@ -47,7 +47,7 @@ body {
 <div id="main"></div>
 <div id="control-panel">
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
-    <div><button id="set-output-button">Set Output</button></div>
+    <div><button id="set-output-button">Set Output</button><button id="add-input-button">Add Input</button></div>
     <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
     <div><div id="rotate-pad" class="drag-pad">Rotate</div></div>
     <div><button id="clear-button">Clear</button></div>
@@ -255,6 +255,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var selectedSegments = {}; // set of segment indexes. segment index i is from vertex i to i+1
 
     var outputSegments = {};
+    var inputSegmentsList = [];
 
     var panSumX = 0, panSumY = 0;
     var zoomLog = -6; // NOTE: default zoom level is somewhat arbitrary
@@ -386,6 +387,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     color = "blue";
                 } else if (outputSegments.hasOwnProperty(i)) {
                     color = "purple";
+                } else {
+                    for (var j = 0; j < inputSegmentsList.length; j++) {
+                        if (inputSegmentsList[j].hasOwnProperty(i)) {
+                            color = "yellow";
+                        }
+                    }
                 }
 
                 if (color) {
@@ -544,9 +551,10 @@ document.addEventListener("DOMContentLoaded", function() {
         baseLeftCorner = baseRightCorner = null;
         updatePolygonElem();
 
-        // clear selection
+        // clear selection and input/output regions
         selectedSegments = {};
         outputSegments = {};
+        inputSegmentsList = [];
 
         outputCenter = null;
         outputRadius = 0;
@@ -690,6 +698,11 @@ document.addEventListener("DOMContentLoaded", function() {
             downVec = newDownVec;
         }
 
+        // clear selection
+        selectedSegments = {};
+        outputSegments = {};
+        inputSegmentsList = [];
+
         polygon = cutPoly;
         baseLeftCorner = leftmostIntersection;
         baseRightCorner = rightmostIntersection;
@@ -697,10 +710,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
         updateViewTransforms();
-
-        // clear selection
-        selectedSegments = {};
-        outputSegments = {};
     }
 
     interactionElem.addEventListener("contextmenu", function (e) {
@@ -829,18 +838,33 @@ document.addEventListener("DOMContentLoaded", function() {
         outputRadius = 0;
         updateOutputRegion();
 
-        // clear selection
+        // clear selection and input/output regions
         selectedSegments = {};
         outputSegments = {};
+        inputSegmentsList = [];
     }, false);
 
     document.getElementById("set-output-button").addEventListener("click", function(e) {
         outputSegments = {};
         mergeUpdate(outputSegments, selectedSegments);
 
+        // clear selection
         selectedSegments = {};
 
         updatePolygonElem();
+    }, false);
+
+    document.getElementById("add-input-button").addEventListener("click", function(e) {
+        if (!isEmpty(selectedSegments)) {
+            var inp = {};
+            mergeUpdate(inp, selectedSegments);
+            inputSegmentsList.push(inp);
+
+            // clear selection
+            selectedSegments = {};
+
+            updatePolygonElem();
+        }
     }, false);
 
     document.getElementById("balance-button").addEventListener("click", function(e) {
