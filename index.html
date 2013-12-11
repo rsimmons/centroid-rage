@@ -228,6 +228,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var selectBoxStart = null, selectBoxEnd = null; // in page coords
     var selectBoxElem = null;
+    var selectedSegments = {}; // set of segment indexes. segment index i is from vertex i to i+1
 
     var panSumX = 0, panSumY = 0;
     var zoomLog = -6; // NOTE: default zoom level is somewhat arbitrary
@@ -408,6 +409,29 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    function applySelectBox() {
+        assert(selectBoxStart && selectBoxEnd);
+
+        var start = pageToElemCoords(selectBoxStart, polyContainerElem);
+        var end = pageToElemCoords(selectBoxEnd, polyContainerElem);
+
+        var x0 = Math.min(start.x, end.x);
+        var x1 = Math.max(start.x, end.x);
+        var y0 = Math.min(start.y, end.y);
+        var y1 = Math.max(start.y, end.y);
+
+        selectedSegments = {}; // should already be cleared I think
+        for (var i = 0; i < polygon.length; i++) {
+            var p = polygon[i];
+            if ((p.x >= x0) && (p.x < x1) && (p.y >= y0) && (p.y < y1)) {
+                selectedSegments[i] = null;
+                selectedSegments[(i-1+polygon.length)%polygon.length] = null;
+            }
+        }
+
+        console.log("selectedSegments", selectedSegments);
+    }
+
     function importSVG(fileData) {
         var pathDataMatch = /<path d="([^"]*)"/.exec(fileData);
         assert(pathDataMatch);
@@ -473,6 +497,9 @@ document.addEventListener("DOMContentLoaded", function() {
         polygon = importedPoly;
         baseLeftCorner = baseRightCorner = null;
         updatePolygonElem();
+
+        // clear selection
+        selectedSegments = {};
 
         outputCenter = null;
         outputRadius = 0;
@@ -620,8 +647,12 @@ document.addEventListener("DOMContentLoaded", function() {
         baseLeftCorner = leftmostIntersection;
         baseRightCorner = rightmostIntersection;
         updatePolygonElem();
+
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
         updateViewTransforms();
+
+        // clear selection
+        selectedSegments = {};
     }
 
     interactionElem.addEventListener("contextmenu", function (e) {
@@ -640,6 +671,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     currentMode = MODE_SELECT_BOX;
                     selectBoxStart = selectBoxEnd = {x: e.pageX, y: e.pageY};
                     updateSelectBox();
+
+                    selectedSegments = {};
+                    // TODO: updatePolygonElem()?
                 } else {
                     if (polygon) {
                         // enter drag mode
@@ -672,6 +706,8 @@ document.addEventListener("DOMContentLoaded", function() {
         } else if (currentMode === MODE_ROTATE) {
             currentMode = MODE_NOTHING;
         } else if (currentMode === MODE_SELECT_BOX) {
+            applySelectBox();
+
             currentMode = MODE_NOTHING;
             selectBoxStart = selectBoxEnd = null;
             updateSelectBox();
@@ -743,6 +779,9 @@ document.addEventListener("DOMContentLoaded", function() {
         outputCenter = null;
         outputRadius = 0;
         updateOutputRegion();
+
+        // clear selection
+        selectedSegments = {};
     }, false);
 
     document.getElementById("balance-button").addEventListener("click", function(e) {
