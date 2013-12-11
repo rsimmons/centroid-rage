@@ -215,7 +215,11 @@ document.addEventListener("DOMContentLoaded", function() {
     var modelTransformGroupElem = svgElem("g");
     viewTransformGroupElem.appendChild(modelTransformGroupElem);
 
-    var polyContainerElem = modelTransformGroupElem;
+    var polyContainerElem = svgElem("g");
+    modelTransformGroupElem.appendChild(polyContainerElem);
+
+    var highlightContainerElem = svgElem("g");
+    modelTransformGroupElem.appendChild(highlightContainerElem);
 
     // make selection box container but child of root, so that its coordinates are scaled 1 to 1 with pixels
     var selectBoxContainerElem = svgElem("g");
@@ -367,6 +371,28 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById("base-width-display").textContent = "";
             document.getElementById("crit-angle-display").textContent = "";
         }
+
+        // redraw highlights each time. not most efficient, but more manageable
+        removeAllChildren(highlightContainerElem);
+
+        // iterate all segments
+        if (polygon && (polygon.length >= 2)) {
+            for (var i = 0; i < polygon.length; i++) {
+                var s0 = polygon[i];
+                var s1 = polygon[(i+1)%polygon.length];
+                var color = null;
+
+                if (selectedSegments.hasOwnProperty(i)) {
+                    color = "blue";
+                } else if (outputSegments.hasOwnProperty(i)) {
+                    color = "purple";
+                }
+
+                if (color) {
+                    highlightContainerElem.appendChild(svgElem("line", {x1: s0.x, y1: s0.y, x2: s1.x, y2: s1.y, stroke: color, "stroke-width": 2.0*zoomCorrection}));
+                }
+            }
+        }
     }
 
     // null to highlight no vertex
@@ -450,8 +476,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 selectedSegments[(i-1+polygon.length)%polygon.length] = null;
             }
         }
-
-        console.log("selectedSegments", selectedSegments);
     }
 
     function importSVG(fileData) {
@@ -731,6 +755,7 @@ document.addEventListener("DOMContentLoaded", function() {
             currentMode = MODE_NOTHING;
         } else if (currentMode === MODE_SELECT_BOX) {
             applySelectBox();
+            updatePolygonElem();
 
             currentMode = MODE_NOTHING;
             selectBoxStart = selectBoxEnd = null;
@@ -812,7 +837,10 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("set-output-button").addEventListener("click", function(e) {
         outputSegments = {};
         mergeUpdate(outputSegments, selectedSegments);
-        console.log("outputSegments", outputSegments);
+
+        selectedSegments = {};
+
+        updatePolygonElem();
     }, false);
 
     document.getElementById("balance-button").addEventListener("click", function(e) {
