@@ -175,7 +175,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var bg = svgElem("rect", {x: "0", y: "0", width: "100%", height: "100%", fill: "rgb(100,100,100)", stroke: "none"});
     rootSVGElem.appendChild(bg);
 
-    var innerSVGElem = svgElem("svg", {version: "1.1", viewBox: "-60 -60 120 120"});
+    var innerSVGElem = svgElem("svg", {version: "1.1", viewBox: "-0.5 -0.5 1 1"});
     rootSVGElem.appendChild(innerSVGElem);
 
     var viewTransformGroupElem = svgElem("g");
@@ -210,8 +210,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var interactionElem = rootSVGElem;
     var dragPrev = null;
     var panSumX = 0, panSumY = 0;
-    var zoomLog = 0;
+    var zoomLog = -6; // NOTE: default zoom level is somewhat arbitrary
     var rotation = 0;
+
+    updateViewTransforms();
 
     var outputCenter = null;
     var outputRadius = 0;
