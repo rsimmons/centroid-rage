@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var interactionElem = rootSVGElem;
     var dragPrev = null;
     var panSumX = 0, panSumY = 0;
-    var zoomSumY = 0;
+    var zoomLog = 0;
     var rotation = 0;
 
     var outputCenter = null;
@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function updateViewTransforms(zoom) {
-        var zoom = Math.exp(-0.005*zoomSumY);
+        var zoom = Math.exp(zoomLog);
         var rotDegrees = 180*rotation/Math.PI;
         viewTransformGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
         modelTransformGroupElem.setAttributeNS(null, "transform", "rotate(" + rotDegrees + ")");
@@ -676,7 +676,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("mousewheel", function(e) {
         if (currentMode === MODE_NOTHING) {
-            zoomSumY += e.wheelDelta;
+            zoomLog += -0.005*e.wheelDelta;
             updateViewTransforms();
         }
     }, false);
