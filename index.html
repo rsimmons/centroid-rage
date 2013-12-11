@@ -178,10 +178,13 @@ document.addEventListener("DOMContentLoaded", function() {
     var innerSVGElem = svgElem("svg", {version: "1.1", viewBox: "-60 -60 120 120"});
     rootSVGElem.appendChild(innerSVGElem);
 
-    var zoomGroupElem = svgElem("g");
-    innerSVGElem.appendChild(zoomGroupElem);
+    var viewTransformGroupElem = svgElem("g");
+    innerSVGElem.appendChild(viewTransformGroupElem);
 
-    var polyContainerElem = zoomGroupElem;
+    var modelTransformGroupElem = svgElem("g");
+    viewTransformGroupElem.appendChild(modelTransformGroupElem);
+
+    var polyContainerElem = modelTransformGroupElem;
 
     // polygon
     var polygon = null; // array of objects with x and y attrs
@@ -229,10 +232,11 @@ document.addEventListener("DOMContentLoaded", function() {
         return pageToElemCoords(pageCoords, elem);
     }
 
-    function setPanZoom(zoom) {
+    function updateViewTransforms(zoom) {
         var zoom = Math.exp(-0.005*zoomSumY);
         var rotDegrees = 180*rotation/Math.PI;
-        zoomGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ") rotate(" + rotDegrees + ")");
+        viewTransformGroupElem.setAttributeNS(null, "transform", "scale(" + zoom + ") translate(" + panSumX + "," + panSumY + ")");
+        modelTransformGroupElem.setAttributeNS(null, "transform", "rotate(" + rotDegrees + ")");
     }
 
     function updatePolygonElem() {
@@ -578,7 +582,7 @@ document.addEventListener("DOMContentLoaded", function() {
         baseRightCorner = rightmostIntersection;
         updatePolygonElem();
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
-        setPanZoom();
+        updateViewTransforms();
     }
 
     interactionElem.addEventListener("contextmenu", function (e) {
@@ -643,14 +647,14 @@ document.addEventListener("DOMContentLoaded", function() {
             updatePolygonElem();
         } else if (currentMode === MODE_PAN) {
             e.preventDefault();
-            var prev = pageToElemCoords(dragPrev, polyContainerElem);
-            var cur = eventToElemCoords(e, polyContainerElem);
+            var prev = pageToElemCoords(dragPrev, viewTransformGroupElem);
+            var cur = eventToElemCoords(e, viewTransformGroupElem);
 
             var dx = cur.x - prev.x;
             var dy = cur.y - prev.y;
             panSumX += dx;
             panSumY += dy;
-            setPanZoom();
+            updateViewTransforms();
 
             dragPrev = {x: e.pageX, y: e.pageY};
         } else if (currentMode === MODE_ROTATE) {
@@ -658,7 +662,7 @@ document.addEventListener("DOMContentLoaded", function() {
             var dy = e.pageY - dragPrev.y;
             rotation += 0.01*dy;
 
-            setPanZoom();
+            updateViewTransforms();
 
             dragPrev = {x: e.pageX, y: e.pageY};
         } else if (currentMode === MODE_MARK_OUTPUT) {
@@ -673,7 +677,7 @@ document.addEventListener("DOMContentLoaded", function() {
     interactionElem.addEventListener("mousewheel", function(e) {
         if (currentMode === MODE_NOTHING) {
             zoomSumY += e.wheelDelta;
-            setPanZoom();
+            updateViewTransforms();
         }
     }, false);
 
