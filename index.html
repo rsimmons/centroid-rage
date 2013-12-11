@@ -241,9 +241,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var MODE_NOTHING = 0;
     var MODE_DRAW = 1;
     var MODE_PAN = 2;
-    var MODE_MARK_OUTPUT = 3;
-    var MODE_ROTATE = 4;
-    var MODE_SELECT_BOX = 5;
+    var MODE_ROTATE = 3;
+    var MODE_SELECT_BOX = 4;
     var currentMode = MODE_NOTHING;
 
     var lastMousePos;
@@ -262,10 +261,6 @@ document.addEventListener("DOMContentLoaded", function() {
     var rotation = 0;
 
     updateViewTransforms();
-
-    var outputCenter = null;
-    var outputRadius = 0;
-    var outputRegionElem = null;
 
     function pageToElemCoords(pageCoords, elem) {
         var m = elem.getScreenCTM();
@@ -421,24 +416,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    function updateOutputRegion() {
-        if (outputCenter === null) {
-            if (outputRegionElem) {
-                polyContainerElem.removeChild(outputRegionElem);
-                outputRegionElem = null;
-            }
-        } else {
-            if (!outputRegionElem) {
-                outputRegionElem = svgElem("circle", {fill: "none", stroke: "yellow", "stroke-width": "0.1"});
-                polyContainerElem.appendChild(outputRegionElem);
-            }
-
-            outputRegionElem.setAttributeNS(null, "cx", outputCenter.x);
-            outputRegionElem.setAttributeNS(null, "cy", outputCenter.y);
-            outputRegionElem.setAttributeNS(null, "r", outputRadius);
-        }
-    }
-
     function updateSelectBox() {
         if (currentMode === MODE_SELECT_BOX) {
             if (!selectBoxElem) {
@@ -555,32 +532,10 @@ document.addEventListener("DOMContentLoaded", function() {
         selectedSegments = {};
         outputSegments = {};
         inputSegmentsList = [];
-
-        outputCenter = null;
-        outputRadius = 0;
-        updateOutputRegion();
     }
 
     function doBalance() {
         var flattenDepth = +(document.getElementById("balance-flatten-depth").value);
-
-        // figure out what segments are in output region. segment index i is formed by vertex i and i+1
-        var segmentInOutput = [];
-        if (outputCenter === null) {
-            for (var i = 0; i < polygon.length; i++) {
-                segmentInOutput.push(true);
-            }
-        } else {
-            for (var i = 0; i < polygon.length; i++) {
-                segmentInOutput.push(false);
-            }
-            for (var i = 0; i < polygon.length; i++) {
-                if (pointDistSqr(polygon[i], outputCenter) < outputRadius*outputRadius) {
-                    segmentInOutput[i] = true;
-                    segmentInOutput[(i-1+polygon.length)%polygon.length] = true;
-                }
-            }
-        }
 
         var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
@@ -808,11 +763,6 @@ document.addEventListener("DOMContentLoaded", function() {
             updateViewTransforms();
 
             dragPrev = {x: e.pageX, y: e.pageY};
-        } else if (currentMode === MODE_MARK_OUTPUT) {
-            e.preventDefault();
-            var p = eventToElemCoords(e, polyContainerElem);
-            outputRadius = pointDist(p, outputCenter);
-            updateOutputRegion();
         } else if (currentMode === MODE_SELECT_BOX) {
             e.preventDefault();
             selectBoxEnd = {x: e.pageX, y: e.pageY};
@@ -833,10 +783,6 @@ document.addEventListener("DOMContentLoaded", function() {
         polygon = null;
         baseLeftCorner = baseRightCorner = null;
         updatePolygonElem();
-
-        outputCenter = null;
-        outputRadius = 0;
-        updateOutputRegion();
 
         // clear selection and input/output regions
         selectedSegments = {};
@@ -901,22 +847,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 controlPanelElem.setAttribute("style", "display:block");
             }
             controlPanelShown = !controlPanelShown;
-        } else if (e.keyCode === 'O'.charCodeAt(0)) {
-            if (currentMode === MODE_NOTHING) {
-                // mark output region
-                currentMode = MODE_MARK_OUTPUT;
-                outputCenter = pageToElemCoords(lastMousePos, polyContainerElem);
-                outputRadius = 0;
-            }
         }
     }, false);
 
     document.addEventListener("keyup", function(e) {
-        if (e.keyCode === 'O'.charCodeAt(0)) {
-            if (currentMode === MODE_MARK_OUTPUT) {
-                currentMode = MODE_NOTHING;
-            }
-        }
     }, false);
 
 }, false);
