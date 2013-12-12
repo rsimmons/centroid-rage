@@ -49,12 +49,12 @@ body {
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
     <div><button id="set-output-button">Set Output</button><button id="add-input-button">Add Input</button></div>
     <div>Output <label>Depth<input name="output-depth" type="text" id="output-depth" size="5" placeholder="depth" value="1.0"></label></div>
-    <div>Input <label>Depth</label><input name="input-depth" id="input-depth" type="text" size="5" placeholder="depth" value="1.0"> <label>Weight</label><input type="text" name="input-weight" id="input-weight" size="5" placeholder="weight" value="1.0"></div>
+    <div>Input <label>Depth</label><input name="input-depth" id="input-depth" type="text" size="5" placeholder="depth" value="1.0"> <label>Weight</label><input type="text" name="input-weight" id="input-weight" size="5" placeholder="weight" value="0"></div>
     <div><button id="balance-button">Balance</button></div>
     <div><div id="rotate-pad" class="drag-pad">Rotate</div></div>
     <div><button id="clear-button">Clear</button></div>
     <div><label>Cursor: <span id="cursor-display"></span></label></div>
-    <div><label>Area: <span id="area-display"></span></label></div>
+    <div><label>Weight: <span id="weight-display"></span></label></div>
     <div><label>Base Width: <span id="base-width-display"></span></label></div>
     <div><label>Critical Angle: <span id="crit-angle-display"></span></label></div>
 </div>
@@ -185,6 +185,18 @@ function polyCentroid(poly) {
     return {x: factor*xsum, y: factor*ysum};
 }
 
+function combineCentroids(centroids) {
+    var sumX = 0, sumY = 0, sumWeight = 0;
+    for (var i = 0; i < centroids.length; i++) {
+        var c = centroids[i];
+        sumX += c.weight*c.centroid.x;
+        sumY += c.weight*c.centroid.y;
+        sumWeight += c.weight;
+    }
+
+    return {centroid: {x: sumX/sumWeight, y: sumY/sumWeight}, weight: sumWeight};
+}
+
 // return index of polygon vertex that is nearest to point p, within given radius. null if no vertex within radius
 function nearestVertex(poly, p, radius) {
     var radSqr = radius*radius;
@@ -269,7 +281,6 @@ function cutPolygon(polygon, allowedSegments, approachDir, depth) {
                 }
             }
         } else {
-            assert(inCut === false); // should have come back out of cut if we aren't in output region
             cutPoly.push(pointCopy(segEnd));
         }
     }
@@ -296,6 +307,8 @@ function cutPolygon(polygon, allowedSegments, approachDir, depth) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+    var DENSITY = 1.0;
+
     var rootSVGElem = svgElem("svg", {version: "1.1"});
 
     var bg = svgElem("rect", {x: "0", y: "0", width: "100%", height: "100%", fill: "rgb(100,100,100)", stroke: "none"});
@@ -326,6 +339,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var centroidElem = null;
 
     var baseLeftCorner = null, baseRightCorner = null; // points, not index
+    var inputPosition = null;
+    var inputWeight = null;
 
     var highlightedVertexIndex = null;
     var vertexHighlightElem = null;
@@ -414,14 +429,26 @@ document.addEventListener("DOMContentLoaded", function() {
             polygonElem.setAttributeNS(null, "d", dataStr);
 
             // calculate and draw centroid
-            var centroid = polyCentroid(polygon);
-            centroidElem.setAttributeNS(null, "cx", centroid.x);
-            centroidElem.setAttributeNS(null, "cy", centroid.y);
+            var selfWeight = DENSITY*Math.abs(polySignedArea(polygon));
+            var selfCentroid = polyCentroid(polygon);
 
-            // calculate and display area if done drawing
+            var combinedCentroid;
+            var combinedWeight;
+            if (inputPosition && inputWeight) {
+                var comb = combineCentroids([{centroid: selfCentroid, weight: selfWeight}, {centroid: inputPosition, weight: inputWeight}]);
+                combinedCentroid = comb.centroid;
+                combinedWeight = comb.weight;
+            } else {
+                combinedCentroid = selfCentroid;
+                combinedWeight = selfWeight;
+            }
+
+            centroidElem.setAttributeNS(null, "cx", combinedCentroid.x);
+            centroidElem.setAttributeNS(null, "cy", combinedCentroid.y);
+
+            // display weight if done drawing
             if (currentMode !== MODE_DRAW) {
-                var area = Math.abs(polySignedArea(polygon));
-                document.getElementById("area-display").textContent = area.toFixed(2);
+                document.getElementById("weight-display").textContent = combinedWeight.toFixed(2);
             }
 
             if (baseLeftCorner && baseRightCorner) {
@@ -431,8 +458,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 var rightVec = normalDiff(baseLeftCorner, baseRightCorner);
                 var downVec = {x: -rightVec.y, y: rightVec.x};
 
-                var leftMinusCog = pointSub(baseLeftCorner, centroid);
-                var rightMinusCog = pointSub(baseRightCorner, centroid);
+                var leftMinusCog = pointSub(baseLeftCorner, combinedCentroid);
+                var rightMinusCog = pointSub(baseRightCorner, combinedCentroid);
 
                 var centroidHeight = vecDot(downVec, leftMinusCog);
                 assert(Math.abs(vecDot(downVec, rightMinusCog) - centroidHeight) < 1e-10); // shouldn't matter which corner
@@ -458,7 +485,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 polyContainerElem.removeChild(vertexHighlightElem);
             }
 
-            document.getElementById("area-display").textContent = "";
+            document.getElementById("weight-display").textContent = "";
             document.getElementById("base-width-display").textContent = "";
             document.getElementById("crit-angle-display").textContent = "";
         }
@@ -621,6 +648,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
         polygon = importedPoly;
         baseLeftCorner = baseRightCorner = null;
+        inputPosition = null;
+        inputWeight = null;
         updatePolygonElem();
 
         // clear selection and input/output regions
@@ -631,6 +660,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function doBalance() {
         var outputDepth = +(document.getElementById("output-depth").value);
+        var hasInput = inputSegmentsList.length > 0;
+        if (hasInput) {
+            var inpDepth = +(document.getElementById("input-depth").value);
+            var inpWeight = +(document.getElementById("input-weight").value);
+        }
 
         var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
@@ -640,13 +674,28 @@ document.addEventListener("DOMContentLoaded", function() {
 
             var upVec = {x: -downVec.x, y: -downVec.y};
 
-            var cutResult = cutPolygon(polygon, outputSegments, upVec, outputDepth);
+            var remainingPoly = polygon;
+            if (hasInput) {
+                var inputCutResult = cutPolygon(remainingPoly, inputSegmentsList[0], downVec, inpDepth);
+                remainingPoly = inputCutResult.cutPoly;
+                console.log("input width", pointDist(inputCutResult.leftmostIntersection, inputCutResult.rightmostIntersection));
+                var inputCenter = {x: 0.5*(inputCutResult.leftmostIntersection.x + inputCutResult.rightmostIntersection.x), y: 0.5*(inputCutResult.leftmostIntersection.y + inputCutResult.rightmostIntersection.y)};
+            }
+            // TODO: problem here is that output segments are now misaligned
+            var cutResult = cutPolygon(remainingPoly, outputSegments, upVec, outputDepth);
 
             // find center point of new base
             var baseCenter = {x: 0.5*(cutResult.leftmostIntersection.x + cutResult.rightmostIntersection.x), y: 0.5*(cutResult.leftmostIntersection.y + cutResult.rightmostIntersection.y)};
 
             // change down vector to have base center directly under new centroid
             var centroid = polyCentroid(cutResult.cutPoly);
+            if (hasInput) {
+                // update centroid to include input weight
+                var curWeight = DENSITY*Math.abs(polySignedArea(cutResult.cutPoly));
+                var combined = combineCentroids([{centroid: centroid, weight: curWeight}, {centroid: inputCenter, weight: inpWeight}]);
+                centroid = combined.centroid;
+            }
+
             var newDownVec = normalDiff(centroid, baseCenter);
             var downDot = vecDot(downVec, newDownVec);
 
@@ -672,6 +721,13 @@ document.addEventListener("DOMContentLoaded", function() {
         polygon = cutResult.cutPoly;
         baseLeftCorner = cutResult.leftmostIntersection;
         baseRightCorner = cutResult.rightmostIntersection;
+        if (hasInput) {
+            inputPosition = inputCenter;
+            inputWeight = inpWeight;
+        } else {
+            inputPosition = null;
+            inputWeight = null;
+        }
         updatePolygonElem();
 
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
@@ -793,6 +849,8 @@ document.addEventListener("DOMContentLoaded", function() {
         currentMode = MODE_NOTHING;
         polygon = null;
         baseLeftCorner = baseRightCorner = null;
+        inputPosition = null;
+        inputWeight = null;
         updatePolygonElem();
 
         // clear selection and input/output regions
