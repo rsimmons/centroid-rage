@@ -773,7 +773,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     interactionElem.addEventListener("mousewheel", function(e) {
         if (currentMode === MODE_NOTHING) {
-            zoomLog += -0.005*e.wheelDelta;
+            zoomLog += -0.001*e.wheelDelta;
             updateViewTransforms();
         }
     }, false);
