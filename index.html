@@ -48,7 +48,9 @@ body {
 <div id="control-panel">
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
     <div><button id="set-output-button">Set Output</button><button id="add-input-button">Add Input</button></div>
-    <div><input name="balance-flatten-depth" type="text" id="balance-flatten-depth" placeholder="flatten depth" value="1.0"><button id="balance-button">Balance</button></div>
+    <div>Output <label>Depth<input name="output-depth" type="text" id="output-depth" size="5" placeholder="depth" value="1.0"></label></div>
+    <div>Input <label>Depth</label><input name="input-depth" id="input-depth" type="text" size="5" placeholder="depth" value="1.0"> <label>Weight</label><input type="text" name="input-weight" id="input-weight" size="5" placeholder="weight" value="1.0"></div>
+    <div><button id="balance-button">Balance</button></div>
     <div><div id="rotate-pad" class="drag-pad">Rotate</div></div>
     <div><button id="clear-button">Clear</button></div>
     <div><label>Cursor: <span id="cursor-display"></span></label></div>
@@ -535,7 +537,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function doBalance() {
-        var flattenDepth = +(document.getElementById("balance-flatten-depth").value);
+        var flattenDepth = +(document.getElementById("output-depth").value);
 
         var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
