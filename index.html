@@ -202,6 +202,99 @@ function nearestVertex(poly, p, radius) {
     return nearestIndex;
 }
 
+function cutPolygon(polygon, allowedSegments, approachDir, depth) {
+    // find maximum dot product against approach direction that is within output region
+    var minDot = undefined;
+    for (var i = 0; i < polygon.length; i++) {
+        if (isEmpty(allowedSegments) || allowedSegments.hasOwnProperty(i)) {
+            var d1 = vecDot(polygon[i], approachDir);
+            if ((minDot === undefined) || (d1 < minDot)) {
+                minDot = d1;
+            }
+
+            var d2 = vecDot(polygon[(i+1)%polygon.length], approachDir);
+            if ((minDot === undefined) || (d2 < minDot)) {
+                minDot = d2;
+            }
+        }
+    }
+
+    // figure out cutting halfspace. we retain the parts in the positive part of the halfspace, so this is really the "not-cut-away halfspace"
+    var cutHalfspace = {a: approachDir.x, b: approachDir.y, c: -minDot - depth};
+
+    // do the cut
+    var cutPoly = []; // result of cutting
+    var inCut = !pointInsideHalfspace(polygon[0], cutHalfspace); // are we in cut-away part?
+    var cutIntersections = []; // points where polygon crossed cut
+    for (var segIdx = 0; segIdx < polygon.length; segIdx++) {
+        var segStart = polygon[segIdx];
+        var segEnd = polygon[(segIdx+1)%polygon.length];
+
+        if (isEmpty(allowedSegments) || allowedSegments.hasOwnProperty(segIdx)) {
+            // test segment against cutting line
+            var segV = pointSub(segEnd, segStart);
+            var denom = cutHalfspace.a*segV.x + cutHalfspace.b*segV.y;
+            var t = undefined;
+
+            if (denom !== 0) {
+                t = -(cutHalfspace.a*segStart.x + cutHalfspace.b*segStart.y + cutHalfspace.c)/denom;
+            }
+
+            if ((t !== undefined) && (t > 0) && (t <= 1)) {
+                var inter = {x: segStart.x + t*segV.x, y: segStart.y + t*segV.y};
+
+                cutIntersections.push(inter);
+
+                if (inCut) {
+                    // coming out of cut back to un-cut
+
+                    cutPoly.push(inter); // add intersection point
+
+                    inCut = false; // no longer in cut
+
+                    cutPoly.push(pointCopy(segEnd));
+                } else {
+                    // going into cut
+                    cutPoly.push(inter); // add intersection point
+
+                    inCut = true;
+                }
+            } else {
+                // segment does not cross cutting line
+                if (inCut) {
+                    // inside cut, so ignore this segment
+                } else {
+                    // outside cut, so copy of segment endpoint
+                    cutPoly.push(pointCopy(segEnd));
+                }
+            }
+        } else {
+            assert(inCut === false); // should have come back out of cut if we aren't in output region
+            cutPoly.push(pointCopy(segEnd));
+        }
+    }
+
+    // now that we've cut the poly, find the extrema of the intersection points
+    // left and right make sense if approach dir is upward, i.e. cutting up from below
+    assert(cutIntersections.length >= 2);
+    var leftmostIntersection = null, rightmostIntersection = null;
+    var leftmostDot = undefined, rightmostDot = undefined;
+    var rightVec = {x: -approachDir.y, y: approachDir.x};
+    for (var i = 0; i < cutIntersections.length; i++) {
+        var dot = vecDot(rightVec, cutIntersections[i]);
+        if ((rightmostDot === undefined) || (dot > rightmostDot)) {
+            rightmostIntersection = cutIntersections[i];
+            rightmostDot = dot;
+        }
+        if ((leftmostDot === undefined) || (dot < leftmostDot)) {
+            leftmostIntersection = cutIntersections[i];
+            leftmostDot = dot;
+        }
+    }
+
+    return {cutPoly: cutPoly, leftmostIntersection: leftmostIntersection, rightmostIntersection: rightmostIntersection};
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     var rootSVGElem = svgElem("svg", {version: "1.1"});
 
@@ -537,7 +630,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function doBalance() {
-        var flattenDepth = +(document.getElementById("output-depth").value);
+        var outputDepth = +(document.getElementById("output-depth").value);
 
         var downVec = {x: Math.sin(rotation), y: Math.cos(rotation)};
         var iterationCount = 0;
@@ -545,104 +638,15 @@ document.addEventListener("DOMContentLoaded", function() {
         while (true) {
             console.log("downVec", downVec);
 
-            // find maximum dot product against downVec that is within output region
-            var maxDot = undefined;
-            for (var i = 0; i < polygon.length; i++) {
-                if (isEmpty(outputSegments) || outputSegments.hasOwnProperty(i)) {
-                    var d1 = vecDot(polygon[i], downVec);
-                    if ((maxDot === undefined) || (d1 > maxDot)) {
-                        maxDot = d1;
-                    }
+            var upVec = {x: -downVec.x, y: -downVec.y};
 
-                    var d2 = vecDot(polygon[(i+1)%polygon.length], downVec);
-                    if ((maxDot === undefined) || (d2 > maxDot)) {
-                        maxDot = d2;
-                    }
-                }
-            }
-
-            // figure out cutting halfspace. we retain the parts in the positive part of the halfspace, so this is really the "not-cut-away halfspace"
-            var cutHalfspace = {a: -downVec.x, b: -downVec.y, c: maxDot - flattenDepth};
-
-            // do the cut
-            var cutPoly = []; // result of cutting
-            var inCut = !pointInsideHalfspace(polygon[0], cutHalfspace); // are we in cut-away part?
-            var cutIntersections = []; // points where polygon crossed cut
-            for (var segIdx = 0; segIdx < polygon.length; segIdx++) {
-                var segStart = polygon[segIdx];
-                var segEnd = polygon[(segIdx+1)%polygon.length];
-
-                if (isEmpty(outputSegments) || outputSegments.hasOwnProperty(segIdx)) {
-                    // test segment against cutting line
-                    var segV = pointSub(segEnd, segStart);
-                    var denom = cutHalfspace.a*segV.x + cutHalfspace.b*segV.y;
-                    var t = undefined;
-
-                    if (denom !== 0) {
-                        t = -(cutHalfspace.a*segStart.x + cutHalfspace.b*segStart.y + cutHalfspace.c)/denom;
-                    }
-
-                    if ((t !== undefined) && (t > 0) && (t <= 1)) {
-                        var inter = {x: segStart.x + t*segV.x, y: segStart.y + t*segV.y};
-
-                        cutIntersections.push(inter);
-
-                        if (inCut) {
-                            // coming out of cut back to un-cut
-
-                            cutPoly.push(inter); // add intersection point
-
-                            inCut = false; // no longer in cut
-
-                            cutPoly.push(pointCopy(segEnd));
-                        } else {
-                            // going into cut
-                            cutPoly.push(inter); // add intersection point
-
-                            inCut = true;
-                        }
-                    } else {
-                        // segment does not cross cutting line
-                        if (inCut) {
-                            // inside cut, so ignore this segment
-                        } else {
-                            // outside cut, so copy of segment endpoint
-                            cutPoly.push(pointCopy(segEnd));
-                        }
-                    }
-                } else {
-                    assert(inCut === false); // should have come back out of cut if we aren't in output region
-                    cutPoly.push(pointCopy(segEnd));
-                }
-            }
-
-            // now that we've cut the poly, find the extrema of the intersection points (the new base)
-            assert(cutIntersections.length >= 2);
-            var leftmostIntersection = null, rightmostIntersection = null;
-            var leftmostDot = undefined, rightmostDot = undefined;
-            var rightVec = {x: downVec.y, y: -downVec.x};
-            for (var i = 0; i < cutIntersections.length; i++) {
-                var dot = vecDot(rightVec, cutIntersections[i]);
-                if ((rightmostDot === undefined) || (dot > rightmostDot)) {
-                    rightmostIntersection = cutIntersections[i];
-                    rightmostDot = dot;
-                }
-                if ((leftmostDot === undefined) || (dot < leftmostDot)) {
-                    leftmostIntersection = cutIntersections[i];
-                    leftmostDot = dot;
-                }
-            }
-
-            iterationCount++;
-            if (iterationCount >= MAX_ITERATIONS) {
-                assert(false); // too many iterations, something not right
-            }
+            var cutResult = cutPolygon(polygon, outputSegments, upVec, outputDepth);
 
             // find center point of new base
-            var baseCenter = {x: 0.5*(leftmostIntersection.x + rightmostIntersection.x), y: 0.5*(leftmostIntersection.y + rightmostIntersection.y)};
+            var baseCenter = {x: 0.5*(cutResult.leftmostIntersection.x + cutResult.rightmostIntersection.x), y: 0.5*(cutResult.leftmostIntersection.y + cutResult.rightmostIntersection.y)};
 
             // change down vector to have base center directly under new centroid
-            var centroid = polyCentroid(cutPoly);
+            var centroid = polyCentroid(cutResult.cutPoly);
             var newDownVec = normalDiff(centroid, baseCenter);
             var downDot = vecDot(downVec, newDownVec);
 
@@ -653,6 +657,11 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             downVec = newDownVec;
+
+            iterationCount++;
+            if (iterationCount > MAX_ITERATIONS) {
+                assert(false); // too many iterations, something not right
+            }
         }
 
         // clear selection
@@ -660,9 +669,9 @@ document.addEventListener("DOMContentLoaded", function() {
         outputSegments = {};
         inputSegmentsList = [];
 
-        polygon = cutPoly;
-        baseLeftCorner = leftmostIntersection;
-        baseRightCorner = rightmostIntersection;
+        polygon = cutResult.cutPoly;
+        baseLeftCorner = cutResult.leftmostIntersection;
+        baseRightCorner = cutResult.rightmostIntersection;
         updatePolygonElem();
 
         rotation = 0.5*Math.PI - Math.atan2(downVec.y, downVec.x);
