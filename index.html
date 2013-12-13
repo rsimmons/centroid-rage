@@ -123,6 +123,12 @@ function pointSub(a, b) {
     return {x: a.x - b.x, y: a.y - b.y};
 }
 
+function pointReflect(p, across) {
+    var dx = across.x - p.x;
+    var dy = across.y - p.y;
+    return {x: p.x + 2*dx, y: p.y + 2*dy};
+}
+
 function vecDot(a, b) {
     return a.x*b.x + a.y*b.y;
 }
@@ -195,6 +201,68 @@ function combineCentroids(centroids) {
     }
 
     return {centroid: {x: sumX/sumWeight, y: sumY/sumWeight}, weight: sumWeight};
+}
+
+function linearInterp(p0, p1, t) {
+    var omt = 1 - t;
+    return {x: omt*p0.x + t*p1.x, y: omt*p0.y + t*p1.y};
+}
+
+/*
+function evalQuadBez(p0, p1, p2, t) {
+    p01 = linearInterp(p0, p1, t);
+    p12 = linearInterp(p1, p2, t);
+    return linearInterp(p01, p12, t);
+}
+
+function evalCubicBez(p0, p1, p2, p3, t) {
+    p01 = linearInterp(p0, p1, t);
+    p12 = linearInterp(p1, p2, t);
+    p23 = linearInterp(p2, p3, t);
+    p0112 = linearInterp(p01, p12, t);
+    p1223 = linearInterp(p12, p23, t);
+    return linearInterp(p0112, p1223, t);
+}
+*/
+
+// based on http://www.ee.oulu.fi/~kapu/cg_course/bigfiles/7_crvsrf_4.pdf
+function subdivQuadraticBezier(p0, p1, p2, thresh) {
+    var curvinessRatio = (pointDist(p0, p1) + pointDist(p1, p2))/pointDist(p0, p2);
+    if (curvinessRatio < (1+thresh)) {
+        // flat enough
+        return [{x: p2.x, y: p2.y}];
+    } else {
+        // not flat enough, subdivide
+        var px0 = linearInterp(p0, p1, 0.5);
+        var px1 = linearInterp(p1, p2, 0.5);
+        var pxx0 = linearInterp(px0, px1, 0.5);
+
+        var sub0 = subdivQuadraticBezier(p0, px0, pxx0, thresh);
+        var sub1 = subdivQuadraticBezier(pxx0, px1, p2, thresh);
+
+        return sub0.concat(sub1);
+    }
+}
+
+function subdivCubicBezier(p0, p1, p2, p3, thresh) {
+    var curvinessRatio = (pointDist(p0, p1) + pointDist(p1, p2) + pointDist(p2, p3))/pointDist(p0, p3);
+    if (curvinessRatio < (1+thresh)) {
+        // flat enough
+        return [{x: p3.x, y: p3.y}];
+    } else {
+        // not flat enough, subdivide
+        var px0 = linearInterp(p0, p1, 0.5);
+        var px1 = linearInterp(p1, p2, 0.5);
+        var px2 = linearInterp(p2, p3, 0.5);
+        var pxx0 = linearInterp(px0, px1, 0.5);
+        var pxx1 = linearInterp(px1, px2, 0.5);
+        var pxxx0 = linearInterp(pxx0, pxx1, 0.5);
+
+        var sub0 = subdivCubicBezier(p0, px0, pxx0, pxxx0, thresh);
+        var sub1 = subdivCubicBezier(pxxx0, pxx1, px2, p3, thresh);
+
+        return sub0.concat(sub1);
+    }
 }
 
 // return index of polygon vertex that is nearest to point p, within given radius. null if no vertex within radius
@@ -585,6 +653,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function importSVG(fileData) {
+        var SUBDIV_THRESH = 0.0005;
         var pathDataMatch = /<path d="([^"]*)"/.exec(fileData);
         assert(pathDataMatch);
 
@@ -596,6 +665,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         var currentPoint;
         var subpathStart;
+        var lastCubicControl;
         var importedPoly = [];
         while ((result = commandRegexp.exec(pathData)) !== null) {
             var commandLetter = result[1];
@@ -615,30 +685,79 @@ document.addEventListener("DOMContentLoaded", function() {
                 currentPoint.x += params[0];
                 currentPoint.y += params[1];
                 importedPoly.push({x: currentPoint.x, y: currentPoint.y});
-            } else if ((commandLetter === 'c') || (commandLetter === 'C')) {
-                assert(params.length === 6);
+            } else if ((commandLetter === 'c') || (commandLetter === 'C') || (commandLetter === 's') || (commandLetter === 'S')) {
+                var p0, p1, p2, p3;
+
                 if (commandLetter === 'c') {
-                    currentPoint.x += params[4];
-                    currentPoint.y += params[5];
+                    assert(params.length === 6);
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = {x: currentPoint.x+params[0], y: currentPoint.y+params[1]};
+                    p2 = {x: currentPoint.x+params[2], y: currentPoint.y+params[3]};
+                    p3 = {x: currentPoint.x+params[4], y: currentPoint.y+params[5]};
                 } else if (commandLetter === 'C') {
-                    currentPoint.x = params[4];
-                    currentPoint.y = params[5];
+                    assert(params.length === 6);
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = {x: params[0], y: params[1]};
+                    p2 = {x: params[2], y: params[3]};
+                    p3 = {x: params[4], y: params[5]};
+                } else if (commandLetter === 's') {
+                    assert(params.length === 4);
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = pointReflect(lastCubicControl, currentPoint);
+                    p2 = {x: currentPoint.x+params[0], y: currentPoint.y+params[1]};
+                    p3 = {x: currentPoint.x+params[2], y: currentPoint.y+params[3]};
+                } else if (commandLetter === 'S') {
+                    assert(params.length === 4);
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = pointReflect(lastCubicControl, currentPoint);
+                    p2 = {x: params[0], y: params[1]};
+                    p3 = {x: params[2], y: params[3]};
                 } else {
                     assert(false);
                 }
-                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
-            } else if (commandLetter === 's') {
+
+                var subdiv = subdivCubicBezier(p0, p1, p2, p3, SUBDIV_THRESH);
+                for (var i = 0; i < subdiv.length; i++) {
+                    importedPoly.push(subdiv[i]);
+                }
+
+                currentPoint = {x: p3.x, y: p3.y};
+                lastCubicControl = {x: p2.x, y: p2.y};
+            } else if ((commandLetter === 'q') || (commandLetter === 'Q')){
                 assert(params.length === 4);
-                currentPoint.x += params[2];
-                currentPoint.y += params[3];
-                importedPoly.push({x: currentPoint.x, y: currentPoint.y});
+                var p0, p1, p2;
+
+                if (commandLetter === 'q') {
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = {x: currentPoint.x+params[0], y: currentPoint.y+params[1]};
+                    p2 = {x: currentPoint.x+params[2], y: currentPoint.y+params[3]};
+                } else if (commandLetter === 'Q') {
+                    p0 = {x: currentPoint.x, y: currentPoint.y};
+                    p1 = {x: params[0], y: params[1]};
+                    p2 = {x: params[2], y: params[3]};
+                } else {
+                    assert(false);
+                }
+
+                var subdiv = subdivQuadraticBezier(p0, p1, p2, SUBDIV_THRESH);
+                for (var i = 0; i < subdiv.length; i++) {
+                    importedPoly.push(subdiv[i]);
+                }
+
+                currentPoint = {x: p2.x, y: p2.y};
             } else if ((commandLetter === 'z') || (commandLetter === 'Z')) {
                 assert(params.length === 0);
             } else {
                 console.log("unhandled command", commandLetter);
                 assert(false);
             }
+
+            if ((commandLetter !== 'c') && (commandLetter !== 'C') && (commandLetter !== 's') && (commandLetter !== 'S')) {
+                lastCubicControl = undefined;
+            }
         }
+
+        console.log("imported polygon has " + importedPoly.length + " points");
 
         var centroid = polyCentroid(importedPoly);
         for (var i = 0; i < importedPoly.length; i++) {
