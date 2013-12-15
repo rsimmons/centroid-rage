@@ -47,6 +47,7 @@ body {
 <div id="main"></div>
 <div id="control-panel">
     <div><input name="import-file-input" type="file" id="import-file-input"><button id="import-file-button">Import</button></div>
+    <div><input name="export-filename-input" type="text" id="export-filename-input">.svg <button id="export-file-button">Export</button></div>
     <div><button id="set-output-button">Set Output</button><button id="add-input-button">Add Input</button></div>
     <div>Output <label>Depth<input name="output-depth" type="text" id="output-depth" size="5" placeholder="depth" value="1.0"></label></div>
     <div>Input <label>Depth</label><input name="input-depth" id="input-depth" type="text" size="5" placeholder="depth" value="1.0"> <label>Weight</label><input type="text" name="input-weight" id="input-weight" size="5" placeholder="weight" value="0"></div>
@@ -58,6 +59,7 @@ body {
     <div><label>Base Width: <span id="base-width-display"></span></label></div>
     <div><label>Critical Angle: <span id="crit-angle-display"></span></label></div>
 </div>
+<script src="FileSaver.js"></script>
 <script>
 "use strict";
 
@@ -1014,6 +1016,55 @@ document.addEventListener("DOMContentLoaded", function() {
             }
             reader.readAsText(fileInput.files[0]);
         }
+    }, false);
+
+    document.getElementById("export-file-button").addEventListener("click", function(e) {
+        e.preventDefault();
+
+        if (!polygon) {
+            return;
+        }
+
+        var xMin, xMax, yMin, yMax;
+        var pathDataStr = "";
+        for (var i = 0; i < polygon.length; i++) {
+            var p = polygon[i];
+
+            if (i === 0) {
+                pathDataStr += "M" + p.x.toFixed(4) + "," + p.y.toFixed(4);
+            } else {
+                pathDataStr += "L" + p.x.toFixed(4) + "," + p.y.toFixed(4);
+            }
+
+            if ((xMin === undefined) || (p.x < xMin)) {
+                xMin = p.x;
+            }
+            if ((xMax === undefined) || (p.x > xMax)) {
+                xMax = p.x;
+            }
+            if ((yMin === undefined) || (p.y < yMin)) {
+                yMin = p.y;
+            }
+            if ((yMax === undefined) || (p.y > yMax)) {
+                yMax = p.y;
+            }
+        }
+
+        pathDataStr += "z";
+
+        var exportText = '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n';
+        exportText += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="600px" height="600px" viewBox="' + xMin + ' ' + yMin + ' ' + (xMax-xMin) + ' ' + (yMax-yMin) +'">\n';
+        exportText += '  <path fill="none" stroke="rgb(0,0,255)" stroke-width="0.01mm" d="' + pathDataStr + '"/>\n';
+        exportText += '</svg>'
+
+        var exportFilenameBase = document.getElementById("export-filename-input").value;
+        if (!exportFilenameBase) {
+            return;
+        }
+
+        var exportFilename = exportFilenameBase + ".svg";
+        var exportBlob = new Blob([exportText], {type: "image/svg+xml"});
+        saveAs(exportBlob, exportFilename);
     }, false);
 
     document.getElementById("rotate-pad").addEventListener("mousedown", function(e) {
